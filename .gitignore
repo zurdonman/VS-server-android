@@ -2,6 +2,7 @@
 .cache
 /out*/
 release/
+log/
 release-packages/
 release-gcp/
 release-images/

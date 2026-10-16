@@ -79,11 +79,25 @@ VERSION="${VERSION:-0.0.0}" bash scripts/build-vscode-web.sh
 echo "==> Assembling the runnable release"
 bash scripts/assemble-release.sh
 
+echo "==> Installing quick commands: vs-server / vs-server-debug"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+BIN_DIR="${PREFIX:-/data/data/com.termux/files/usr}/bin"
+if [[ ! -d $BIN_DIR || ! -w $BIN_DIR ]]; then
+  BIN_DIR="$HOME/.local/bin"
+  mkdir -p "$BIN_DIR"
+  echo "    ($BIN_DIR no esta en el PATH habitual; se instalara alli igualmente)"
+fi
+ln -sf "$ROOT/bin/vs-server" "$BIN_DIR/vs-server"
+ln -sf "$ROOT/bin/vs-server-debug" "$BIN_DIR/vs-server-debug"
+echo "    Comandos instalados en: $BIN_DIR"
+
 echo ""
 echo "=============================================================="
-echo " Build finished. Start VS Code Server with:"
-echo "     bash scripts/termux-start.sh"
-echo " Debug mode (logs en Descargas/log/):"
-echo "     bash scripts/termux-start.sh debug"
-echo " then open http://localhost:8080 (or http://<tu-ip>:8080)"
+echo " ¡Listo! Abre VS Code Server con un solo comando:"
+echo ""
+echo "     vs-server            (arranca el servidor)"
+echo "     vs-server-debug      (modo debug: logs en Descargas/log/)"
+echo ""
+echo " y abre http://localhost:8080 en el navegador."
+echo " (Si los comandos no se encuentran, cierra y vuelve a abrir Termux)"
 echo "=============================================================="
