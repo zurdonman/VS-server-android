@@ -5,6 +5,34 @@
 set -euo pipefail
 cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.."
 
+# Toda la salida se guarda en un log (mismo sistema que la instalacion).
+DL="$HOME/storage/downloads"
+if [[ -d $DL ]]; then
+  LOG_DIR="$DL/log"
+else
+  LOG_DIR="$PWD/log"
+fi
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/update.log"
+: > "$LOG_FILE"
+exec > >(tee -a "$LOG_FILE") 2>&1
+
+on_exit() {
+  local code=$?
+  if [[ $code -ne 0 ]]; then
+    echo ""
+    echo "=============================================================="
+    echo " ACTUALIZACION FALLIDA (codigo $code)"
+    echo " Copia SOLO este bloque final y mandamelo (es suficiente):"
+    echo "--------------------------------------------------------------"
+    tail -n 25 "$LOG_FILE"
+    echo "--------------------------------------------------------------"
+    echo " (el log completo esta en: $LOG_FILE)"
+    echo "=============================================================="
+  fi
+}
+trap on_exit EXIT
+
 echo "==> Buscando actualizaciones (git pull)..."
 OLD=$(git rev-parse HEAD)
 if ! git pull --ff-only; then

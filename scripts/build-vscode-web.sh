@@ -58,6 +58,10 @@ JSON
 ) > product.json
 rm product.original.json
 
+# Un fallo del typecheck (tsgo) no debe bloquear la compilacion en el movil;
+# se registra el error real pero el build continua.
+export VSCODE_TSGO_NONFATAL=1
+
 # Llamamos a gulp directamente con un limite de heap sensato: el script npm de
 # VS Code pide --max-old-space-size=32384 (32 GB) y en un movil el gestor de
 # memoria de Android puede matar el proceso antes de tiempo.
