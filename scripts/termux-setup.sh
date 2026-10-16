@@ -14,6 +14,9 @@ cd "$(dirname "$0")/.."
 
 echo "==> [1/6] Installing Termux packages"
 pkg update -y
+# x11-repo: libx11/libxkbfile son necesarias para compilar native-keymap
+pkg install -y x11-repo || true
+pkg update -y || true
 pkg install -y \
   git \
   nodejs-lts \
@@ -27,7 +30,9 @@ pkg install -y \
   libsecret \
   ripgrep \
   krb5 \
-  || pkg install -y git nodejs python make clang pkg-config binutils patch jq ripgrep krb5 \
+  libx11 \
+  libxkbfile \
+  || pkg install -y git nodejs python make clang pkg-config binutils patch jq ripgrep krb5 libx11 libxkbfile \
   || pkg install -y git nodejs python make clang pkg-config binutils patch jq ripgrep
 
 echo "    Node: $(node -v)"
