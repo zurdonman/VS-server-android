@@ -32,7 +32,9 @@ pkg install -y \
 
 echo "    Node: $(node -v)"
 python3 -m pip install --quiet --upgrade pip >/dev/null 2>&1 || true
-npm config set python python3
+# npm 11+ (Node 24) rechaza `npm config set python`; node-gyp usa la variable
+# de entorno PYTHON, que vale para todas las versiones.
+export PYTHON=python3
 
 echo "==> [2/6] Fetching the VS Code source tree"
 bash scripts/fetch-vscode.sh
