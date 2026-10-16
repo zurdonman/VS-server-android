@@ -78,14 +78,19 @@ else
   fi
 
   if [[ $NEED_VSCODE == 1 ]]; then
-    echo "==> Reconstruyendo VS Code (lento: 20-60 min)"
-    if [[ -d lib/vscode/.git || -f lib/vscode/.git ]]; then
-      git -C lib/vscode reset --hard >/dev/null 2>&1 || true
-      git -C lib/vscode clean -fdq -e node_modules || true
+    if [[ -f .prebuilt-install ]]; then
+      echo "==> Instalacion precopilada: actualizando descargando el nuevo build"
+      bash scripts/termux-fast-setup.sh
+    else
+      echo "==> Reconstruyendo VS Code (lento: 20-60 min)"
+      if [[ -d lib/vscode/.git || -f lib/vscode/.git ]]; then
+        git -C lib/vscode reset --hard >/dev/null 2>&1 || true
+        git -C lib/vscode clean -fdq -e node_modules || true
+      fi
+      rm -f .patches-applied
+      bash scripts/apply-patches.sh
+      bash scripts/build-vscode-web.sh
     fi
-    rm -f .patches-applied
-    bash scripts/apply-patches.sh
-    bash scripts/build-vscode-web.sh
   fi
 
   if [[ $NEED_CS == 1 || $NEED_VSCODE == 1 ]]; then
@@ -97,11 +102,16 @@ fi
 # Si no hay compilacion (o quedo a medias), compilarla ahora: sin ella el
 # servidor no puede arrancar.
 if [[ ! -f release/out/node/entry.js ]]; then
-  echo "==> No hay build (release/). Preparando dependencias y compilando... (paso largo: 20-60 min)"
-  bash scripts/termux-deps.sh
-  npm run build
-  bash scripts/build-vscode-web.sh
-  bash scripts/assemble-release.sh
+  if [[ -f .prebuilt-install ]]; then
+    echo "==> No hay build. Descargando el precopilado (rapido)"
+    bash scripts/termux-fast-setup.sh
+  else
+    echo "==> No hay build (release/). Preparando dependencias y compilando... (paso largo: 20-60 min)"
+    bash scripts/termux-deps.sh
+    npm run build
+    bash scripts/build-vscode-web.sh
+    bash scripts/assemble-release.sh
+  fi
 fi
 
 # (Re)instalar los comandos cortos por si el proyecto se movio de carpeta.

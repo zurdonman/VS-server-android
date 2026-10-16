@@ -102,6 +102,7 @@ WRAP
   fi
 done
 
+rm -f .prebuilt-install   # esto es una compilacion completa, no precopilada
 echo "==> [6/6] Building code-server + VS Code web (this is the slow part)"
 npm run build
 VERSION="${VERSION:-0.0.0}" bash scripts/build-vscode-web.sh

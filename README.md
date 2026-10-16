@@ -11,11 +11,23 @@ al teclado virtual en lugar de quedar tapada por él.
 
 ## ⚡ Comandos rápidos (Termux en el móvil)
 
+**Opción rápida (recomendada)** — descarga el build precopilado y solo compila
+unas piezas nativas en el móvil (~10 min), como el code-server oficial:
+
 ```sh
 pkg install -y git
 git clone -b arena/55960f6b-vs-server-android https://github.com/zurdonman/VS-server-android.git ~/vs-server
 cd ~/vs-server
-bash scripts/termux-setup.sh       # instala dependencias + compila todo (20-60 min)
+bash scripts/termux-fast-setup.sh
+```
+
+**Opción completa** — compila todo desde el código en el propio móvil (20-60 min):
+
+```sh
+pkg install -y git
+git clone -b arena/55960f6b-vs-server-android https://github.com/zurdonman/VS-server-android.git ~/vs-server
+cd ~/vs-server
+bash scripts/termux-setup.sh
 ```
 
 > Usa una carpeta propia (`~/vs-server`) para el proyecto, no una subcarpeta de

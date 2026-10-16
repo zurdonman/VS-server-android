@@ -3,6 +3,7 @@
 /out*/
 release/
 log/
+.prebuilt-install
 release-packages/
 release-gcp/
 release-images/
