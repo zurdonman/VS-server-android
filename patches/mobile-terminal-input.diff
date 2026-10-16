@@ -1,0 +1,55 @@
+Fix Enter on mobile IMEs (Android virtual keyboards) in the integrated terminal.
+
+xterm.js ignores keyCode 229 keydowns and the soft keyboard never mutates the
+helper textarea, so Enter never reached the pty. Send the carriage return
+explicitly from the keydown/beforeinput fallback.
+
+Index: code-server/lib/vscode/src/vs/workbench/contrib/terminal/browser/xterm/xtermTerminal.ts
+====================================================================
+--- code-server.orig/lib/vscode/src/vs/workbench/contrib/terminal/browser/xterm/xtermTerminal.ts
++++ code-server/lib/vscode/src/vs/workbench/contrib/terminal/browser/xterm/xtermTerminal.ts
+@@ -525,6 +525,43 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
+ 		ad.add(dom.addDisposableListener(this.raw.textarea, 'blur', () => this._setFocused(false)));
+ 		ad.add(dom.addDisposableListener(this.raw.textarea, 'focusout', () => this._setFocused(false)));
+ 
++		// Mobile IME input (Android virtual keyboards): soft keyboards deliver Enter
++		// as a `keydown` with `keyCode: 229`/`isComposing` (which xterm.js ignores)
++		// plus a cancelable `beforeinput` (`insertLineBreak`/`insertParagraph`) that
++		// never mutates the helper textarea, so the newline never reaches the pty.
++		// Send it explicitly and cancel the DOM edit so xterm's own input handling
++		// cannot duplicate it.
++		let imeLineBreakAt = 0;
++		let imeLineBreakFallback: ReturnType<typeof setTimeout> | undefined;
++		const sendImeEnter = () => {
++			imeLineBreakAt = Date.now();
++			this.raw.input('\r');
++		};
++		ad.add(dom.addDisposableListener(this.raw.textarea, 'keydown', (e: KeyboardEvent) => {
++			if (e.key === 'Enter' && (e.isComposing || e.keyCode === 229)) {
++				// Do not preventDefault: the IME must still commit its composition.
++				e.stopPropagation();
++				// Defer: when a composition is active the committed text must reach the
++				// pty before the newline. The beforeinput below normally lands first and
++				// cancels this fallback; it only fires for IMEs that never produce one.
++				clearTimeout(imeLineBreakFallback);
++				imeLineBreakFallback = setTimeout(() => {
++					if (Date.now() - imeLineBreakAt >= 300) {
++						sendImeEnter();
++					}
++				}, 150);
++			}
++		}));
++		ad.add(dom.addDisposableListener(this.raw.textarea, 'beforeinput', (e: InputEvent) => {
++			if (e.inputType === 'insertLineBreak' || e.inputType === 'insertParagraph') {
++				e.preventDefault();
++				clearTimeout(imeLineBreakFallback);
++				if (Date.now() - imeLineBreakAt >= 300) {
++					sendImeEnter();
++				}
++			}
++		}));
++
+ 		// Track wheel events in mouse wheel classifier and update smoothScrolling when it changes
+ 		// as it must be disabled when a trackpad is used
+ 		ad.add(dom.addDisposableListener(this.raw.element, dom.EventType.MOUSE_WHEEL, (e: IMouseWheelEvent) => {
+

@@ -1,0 +1,139 @@
+Fix Enter and soft-key edits on mobile IMEs (Android virtual keyboards) in the editor.
+
+Soft keyboards deliver Enter as a keyCode 229/isComposing keydown plus a
+cancelable beforeinput (insertLineBreak/insertParagraph) that never mutates
+the textarea, so the newline used to be silently dropped in both edit
+contexts (textarea and native EditContext).
+
+Index: code-server/lib/vscode/src/vs/editor/browser/controller/editContext/native/nativeEditContext.ts
+====================================================================
+--- code-server.orig/lib/vscode/src/vs/editor/browser/controller/editContext/native/nativeEditContext.ts
++++ code-server/lib/vscode/src/vs/editor/browser/controller/editContext/native/nativeEditContext.ts
+@@ -157,6 +157,11 @@ export class NativeEditContext extends AbstractEditContext {
+ 		this._register(addDisposableListener(this.domNode.domNode, 'beforeinput', async (e) => {
+ 			inputLatency.onBeforeInput();
+ 			if (e.inputType === 'insertParagraph' || e.inputType === 'insertLineBreak') {
++				// Mobile IME (Android virtual keyboards): the soft keyboard's Enter
++				// arrives as this cancelable beforeinput and never reaches the edit
++				// context as a textupdate. Cancel the DOM edit so a textupdate (or the
++				// edit context's own bookkeeping) cannot insert a second line break.
++				e.preventDefault();
+ 				this._onType(this._viewController, { text: '\n', replacePrevCharCnt: 0, replaceNextCharCnt: 0, positionDelta: 0 });
+ 			}
+ 		}));
+
+Index: code-server/lib/vscode/src/vs/editor/browser/controller/editContext/textArea/textAreaEditContextInput.ts
+====================================================================
+--- code-server.orig/lib/vscode/src/vs/editor/browser/controller/editContext/textArea/textAreaEditContextInput.ts
++++ code-server/lib/vscode/src/vs/editor/browser/controller/editContext/textArea/textAreaEditContextInput.ts
+@@ -196,6 +196,42 @@ export class TextAreaInput extends Disposable {
+ 
+ 		let lastKeyDown: IKeyboardEvent | null = null;
+ 
++		// --- Mobile IME line breaks (Android virtual keyboards)
++		//
++		// Soft keyboards (Gboard and friends) deliver Enter as a `keydown` with
++		// `keyCode: 229`/`isComposing` (which is normalized to KEY_IN_COMPOSITION
++		// above and therefore matches no keybinding) plus a cancelable `beforeinput`
++		// (`insertLineBreak`/`insertParagraph`) that never mutates the textarea
++		// value. The value-diff machinery in `onInput` below then never observes a
++		// newline, so the editor silently swallows Enter. Detect these and type the
++		// line break explicitly instead.
++		let imeLineBreakAt = 0;
++		let pendingImeLineBreak = false;
++		const typeImeLineBreak = () => {
++			imeLineBreakAt = Date.now();
++			this._onType.fire({ text: '\n', replacePrevCharCnt: 0, replaceNextCharCnt: 0, positionDelta: 0 });
++		};
++		const requestImeLineBreak = () => {
++			// Guard against both the keydown and the beforeinput delivering the same
++			// Enter press.
++			if (Date.now() - imeLineBreakAt < 300) {
++				return;
++			}
++			if (this._currentComposition) {
++				// The IME is mid-composition: the newline must come after the composed
++				// text is committed (see the compositionend handler below).
++				pendingImeLineBreak = true;
++				return;
++			}
++			typeImeLineBreak();
++		};
++		const flushPendingImeLineBreak = () => {
++			if (pendingImeLineBreak) {
++				pendingImeLineBreak = false;
++				typeImeLineBreak();
++			}
++		};
++
+ 		this._register(this._textArea.onKeyDown((_e) => {
+ 			const e = new StandardKeyboardEvent(_e);
+ 			if (e.keyCode === KeyCode.KEY_IN_COMPOSITION
+@@ -211,6 +247,12 @@ export class TextAreaInput extends Disposable {
+ 			}
+ 
+ 			lastKeyDown = e;
++			if (_e.key === 'Enter' && e.keyCode === KeyCode.KEY_IN_COMPOSITION) {
++				// Mobile IME: Enter was swallowed by the IME (see comment above).
++				// Do not preventDefault: the IME must still commit its composition.
++				e.stopPropagation();
++				requestImeLineBreak();
++			}
+ 			this._onKeyDown.fire(e);
+ 		}));
+ 
+@@ -296,6 +338,7 @@ export class TextAreaInput extends Disposable {
+ 			if (!currentComposition) {
+ 				// https://github.com/microsoft/monaco-editor/issues/1663
+ 				// On iOS 13.2, Chinese system IME randomly trigger an additional compositionend event with empty data
++				flushPendingImeLineBreak();
+ 				return;
+ 			}
+ 			this._currentComposition = null;
+@@ -310,6 +353,7 @@ export class TextAreaInput extends Disposable {
+ 				this._textAreaState = newState;
+ 				this._onType.fire(typeInput);
+ 				this._onCompositionEnd.fire();
++				flushPendingImeLineBreak();
+ 				return;
+ 			}
+ 
+@@ -317,6 +361,7 @@ export class TextAreaInput extends Disposable {
+ 			this._textAreaState = TextAreaState.readFromTextArea(this._textArea, this._textAreaState);
+ 			this._onType.fire(typeInput);
+ 			this._onCompositionEnd.fire();
++			flushPendingImeLineBreak();
+ 		}));
+ 
+ 		this._register(this._textArea.onInput((e) => {
+@@ -365,6 +410,29 @@ export class TextAreaInput extends Disposable {
+ 			}
+ 		}));
+ 
++		// Mobile IME fallback (see comment at the top of the constructor): handle
++		// Enter and backspace/delete soft keys that arrive as `beforeinput` edits
++		// without a usable keydown. `preventDefault` cancels the DOM edit so the
++		// value-diff logic above cannot double-insert it.
++		this._register(this._textArea.onBeforeInput((e: InputEvent) => {
++			if (e.inputType === 'insertLineBreak' || e.inputType === 'insertParagraph') {
++				e.preventDefault();
++				requestImeLineBreak();
++			} else if (e.inputType === 'deleteContentBackward') {
++				if (this._currentComposition || e.isComposing) {
++					return; // let the IME edit its own composition text
++				}
++				e.preventDefault();
++				this._onType.fire({ text: '', replacePrevCharCnt: 1, replaceNextCharCnt: 0, positionDelta: 0 });
++			} else if (e.inputType === 'deleteContentForward') {
++				if (this._currentComposition || e.isComposing) {
++					return; // let the IME edit its own composition text
++				}
++				e.preventDefault();
++				this._onType.fire({ text: '', replacePrevCharCnt: 0, replaceNextCharCnt: 1, positionDelta: 0 });
++			}
++		}));
++
+ 		// --- Clipboard operations
+ 
+ 		this._register(this._textArea.onCut((e) => {
+
