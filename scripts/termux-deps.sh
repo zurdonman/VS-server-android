@@ -61,13 +61,19 @@ staged_natives lib/vscode \
 
 echo "==> Dependencias anidadas de VS Code (build/, remote/, extensions/...)"
 pushd lib/vscode >/dev/null
-npm_config_ignore_scripts=true node build/npm/postinstall.ts
+# VSCODE_FORCE_INSTALL: sin esto, postinstall puede saltarse todo creyendo que
+# ya esta instalado (y faltan paquetes como esbuild en extensions/).
+VSCODE_FORCE_INSTALL=1 npm_config_ignore_scripts=true node build/npm/postinstall.ts
 popd >/dev/null
 
-# build/: esbuild (binario Go estatico) necesario para empaquetar.
+# esbuild (binario Go estatico) necesario para empaquetar.
 if [[ -d lib/vscode/build/node_modules/esbuild ]]; then
   echo "    compilando esbuild (lib/vscode/build)"
   (cd lib/vscode/build && npm rebuild esbuild)
+fi
+if [[ -d lib/vscode/extensions/node_modules ]]; then
+  echo "    compilando esbuild (lib/vscode/extensions)"
+  (cd lib/vscode/extensions && npm rebuild esbuild)
 fi
 
 # remote/: de aqui sale el node_modules del release; sus nativos importan.

@@ -53,7 +53,7 @@ else
   NEED_NPM=0
   NEED_CS=0
   NEED_VSCODE=0
-  if grep -qE '^(package\.json|package-lock\.json|npm-shrinkwrap\.json)$' <<<"$CHANGED"; then
+  if grep -qE '^(package\.json|package-lock\.json|npm-shrinkwrap\.json|scripts/termux-deps\.sh)$' <<<"$CHANGED"; then
     NEED_NPM=1
   fi
   if grep -qE '^(src/|tsconfig|package\.json)' <<<"$CHANGED"; then
@@ -92,6 +92,15 @@ else
     echo "==> Reensamblando release/"
     bash scripts/assemble-release.sh
   fi
+fi
+
+# Si no hay compilacion (o quedo a medias), compilarla ahora: sin ella el
+# servidor no puede arrancar.
+if [[ ! -f release/out/node/entry.js ]]; then
+  echo "==> No hay build (release/). Compilando... (paso largo: 20-60 min)"
+  npm run build
+  bash scripts/build-vscode-web.sh
+  bash scripts/assemble-release.sh
 fi
 
 # (Re)instalar los comandos cortos por si el proyecto se movio de carpeta.
