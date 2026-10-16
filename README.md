@@ -13,10 +13,13 @@ al teclado virtual en lugar de quedar tapada por él.
 
 ```sh
 pkg install -y git
-git clone -b arena/55960f6b-vs-server-android https://github.com/zurdonman/VS-server-android.git
-cd VS-server-android
+git clone -b arena/55960f6b-vs-server-android https://github.com/zurdonman/VS-server-android.git ~/vs-server
+cd ~/vs-server
 bash scripts/termux-setup.sh       # instala dependencias + compila todo (20-60 min)
 ```
+
+> Usa una carpeta propia (`~/vs-server`) para el proyecto, no una subcarpeta de
+> otro proyecto.
 
 Y después, **desde cualquier carpeta**, con dos comandos fáciles de recordar:
 
@@ -44,7 +47,7 @@ actualización es de documentación o scripts, es al instante). Si prefieres
 hacerlo a mano:
 
 ```sh
-cd VS-server-android
+cd ~/vs-server
 git pull
 ```
 
