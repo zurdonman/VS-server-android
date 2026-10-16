@@ -17,6 +17,7 @@ import { UpdateProvider } from "../update"
 import { getMediaMime, paths } from "../util"
 import type { WebsocketRequest } from "../wsRouter"
 import * as domainProxy from "./domainProxy"
+import * as androidDebug from "./androidDebug"
 import { errorHandler, wsErrorHandler } from "./errors"
 import * as health from "./health"
 import * as login from "./login"
@@ -153,6 +154,12 @@ export const register = async (
 
   app.router.use("/healthz", health.router)
   app.wsRouter.use("/healthz", health.wsRouter.router)
+
+  // VS Server Android: browser-side debug logging (only active when launched
+  // with scripts/termux-start.sh debug, i.e. CS_DEBUG_LOG_DIR set).
+  if (androidDebug.isEnabled()) {
+    app.router.use("/-/android-debug", androidDebug.router)
+  }
 
   if (args.auth === AuthType.Password) {
     app.router.use("/login", login.router)

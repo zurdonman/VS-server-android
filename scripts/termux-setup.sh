@@ -23,11 +23,12 @@ pkg install -y \
   pkg-config \
   binutils \
   patch \
+  jq \
   libsecret \
   ripgrep \
   krb5 \
-  || pkg install -y git nodejs python make clang pkg-config binutils patch ripgrep krb5 \
-  || pkg install -y git nodejs python make clang pkg-config binutils patch ripgrep
+  || pkg install -y git nodejs python make clang pkg-config binutils patch jq ripgrep krb5 \
+  || pkg install -y git nodejs python make clang pkg-config binutils patch jq ripgrep
 
 echo "    Node: $(node -v)"
 python3 -m pip install --quiet --upgrade pip >/dev/null 2>&1 || true
@@ -70,9 +71,14 @@ echo "==> [6/6] Building code-server + VS Code web (this is the slow part)"
 npm run build
 VERSION="${VERSION:-0.0.0}" npm run build:vscode
 
+echo "==> Assembling the runnable release"
+bash scripts/assemble-release.sh
+
 echo ""
 echo "=============================================================="
 echo " Build finished. Start VS Code Server with:"
 echo "     bash scripts/termux-start.sh"
+echo " Debug mode (logs en Descargas/log/):"
+echo "     bash scripts/termux-start.sh debug"
 echo " then open http://localhost:8080 (or http://<tu-ip>:8080)"
 echo "=============================================================="

@@ -1,0 +1,223 @@
+Add a mobile debug logging contribution (VS Server Android).
+
+When code-server is launched with scripts/termux-start.sh debug (CS_DEBUG_LOG_DIR
+set), the server exposes /-/android-debug/{ping,log} and this contribution
+streams browser-side diagnostics to <Descargas>/log/client.log: console errors,
+window errors, unhandled rejections, keyboard/input/composition traces (what the
+soft keyboard really sends), virtual-keyboard viewport changes and focus moves.
+Does nothing when the endpoint is absent.
+
+Index: code-server/lib/vscode/src/vs/workbench/contrib/mobileKeyboard/browser/mobileDebug.contribution.ts
+====================================================================
+--- /dev/null
++++ code-server/lib/vscode/src/vs/workbench/contrib/mobileKeyboard/browser/mobileDebug.contribution.ts
+@@ -0,0 +1,196 @@
++/*---------------------------------------------------------------------------------------------
++ *  Copyright (c) Microsoft Corporation. All rights reserved.
++ *  Licensed under the MIT License. See License.txt in the project root for license information.
++ *--------------------------------------------------------------------------------------------*/
++
++import { addDisposableListener } from '../../../../base/browser/dom.js';
++import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
++import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
++
++/**
++ * VS Server Android: debug logging for mobile/browser issues.
++ *
++ * When code-server runs with scripts/termux-start.sh debug (CS_DEBUG_LOG_DIR),
++ * it exposes `/-/android-debug/{ping,log}`. This contribution probes that
++ * endpoint and, when present, streams browser-side diagnostics into
++ * `<Descargas>/log/client.log`:
++ *
++ * - console.error/console.warn
++ * - window errors and unhandled promise rejections (with stacks)
++ * - keyboard/input/composition traces (what the soft keyboard actually sends,
++ *   which is exactly what is needed to debug Enter/IME problems)
++ * - virtual-keyboard viewport changes and focus moves
++ *
++ * If the endpoint is not there (normal runs), the contribution does nothing.
++ */
++export class MobileDebugContribution extends Disposable implements IWorkbenchContribution {
++
++	static readonly ID = 'workbench.contrib.mobileDebug';
++
++	private static readonly MAX_ENTRIES = 4000;
++
++	private _url: string = '';
++	private _entries = 0;
++	private _lastFocus = '';
++
++	constructor() {
++		super();
++		void this._start();
++	}
++
++	private async _start(): Promise<void> {
++		// `_VSCODE_FILE_ROOT` is set by workbench.html and ends with `out/`; the
++		// debug endpoint lives next to it on the code-server side (it also works
++		// under a base path).
++		const fileRoot = (globalThis as any)._VSCODE_FILE_ROOT as string | undefined;
++		const base = fileRoot ? fileRoot.replace(/out\/$/, '') : '/';
++		try {
++			const response = await fetch(`${base}-/android-debug/ping`);
++			if (!response.ok) {
++				return;
++			}
++			this._url = `${base}-/android-debug/log`;
++		} catch {
++			return; // debug endpoint not active; stay silent
++		}
++
++		const vv = window.visualViewport;
++		this.log('start', {
++			userAgent: navigator.userAgent,
++			language: navigator.language,
++			maxTouchPoints: navigator.maxTouchPoints,
++			innerWidth: window.innerWidth,
++			innerHeight: window.innerHeight,
++			visualViewport: vv ? { width: vv.width, height: vv.height, offsetTop: vv.offsetTop, scale: vv.scale } : null,
++			href: location.href,
++		});
++
++		// console.error / console.warn.
++		for (const level of ['error', 'warn'] as const) {
++			const original = console[level].bind(console);
++			console[level] = (...args: unknown[]) => {
++				this.log('console', { level, text: args.map((a) => MobileDebugContribution._stringify(a)).join(' ') });
++				original(...args);
++			};
++		}
++
++		// Window errors and unhandled promise rejections.
++		this._register(addDisposableListener(window, 'error', (e: ErrorEvent) => {
++			this.log('window-error', {
++				message: e.message,
++				filename: e.filename,
++				lineno: e.lineno,
++				colno: e.colno,
++				stack: e.error instanceof Error ? e.error.stack : String(e.error ?? ''),
++			});
++		}));
++		this._register(addDisposableListener(window, 'unhandledrejection', (e: PromiseRejectionEvent) => {
++			const reason: unknown = e.reason;
++			this.log('unhandled-rejection', {
++				reason: reason instanceof Error ? (reason.stack || reason.message) : MobileDebugContribution._stringify(reason),
++			});
++		}));
++
++		// Input traces: what the soft keyboard actually delivers to the page.
++		// This is the ground truth for debugging Enter/IME issues.
++		this._register(addDisposableListener(document, 'keydown', (e: KeyboardEvent) => {
++			this.log('input', {
++				kind: 'keydown',
++				key: e.key,
++				code: e.code,
++				keyCode: e.keyCode,
++				isComposing: e.isComposing,
++				repeat: e.repeat,
++				modifiers: { ctrl: e.ctrlKey, alt: e.altKey, shift: e.shiftKey, meta: e.metaKey },
++				target: MobileDebugContribution._describe(e.target),
++			});
++		}, true));
++		this._register(addDisposableListener(document, 'beforeinput', (e: InputEvent) => {
++			this.log('input', {
++				kind: 'beforeinput',
++				inputType: e.inputType,
++				data: typeof e.data === 'string' ? e.data : null,
++				isComposing: e.isComposing,
++				target: MobileDebugContribution._describe(e.target),
++			});
++		}, true));
++		for (const type of ['compositionstart', 'compositionend'] as const) {
++			this._register(addDisposableListener(document, type, (e: CompositionEvent) => {
++				this.log('input', {
++					kind: type,
++					data: e.data,
++					target: MobileDebugContribution._describe(e.target),
++				});
++			}, true));
++		}
++
++		// Virtual keyboard open/close (Android only resizes the visual viewport).
++		let viewportTimer: ReturnType<typeof setTimeout> | undefined;
++		const logViewport = () => {
++			clearTimeout(viewportTimer);
++			viewportTimer = setTimeout(() => {
++				const v = window.visualViewport;
++				this.log('viewport', {
++					innerWidth: window.innerWidth,
++					innerHeight: window.innerHeight,
++					vvWidth: v?.width,
++					vvHeight: v?.height,
++					keyboardInset: v ? Math.max(0, Math.round(window.innerHeight - v.height - v.offsetTop)) : 0,
++				});
++			}, 200);
++		};
++		if (window.visualViewport) {
++			this._register(addDisposableListener(window.visualViewport, 'resize', logViewport));
++		}
++		this._register(addDisposableListener(window, 'resize', logViewport));
++		this._register(toDisposable(() => clearTimeout(viewportTimer)));
++
++		// Focus moves (which element owns the keyboard).
++		this._register(addDisposableListener(document, 'focusin', (e: FocusEvent) => {
++			const where = MobileDebugContribution._describe(e.target);
++			if (where !== this._lastFocus) {
++				this._lastFocus = where;
++				this.log('focus', { target: where });
++			}
++		}));
++
++		this.log('ready', {});
++	}
++
++	public log(event: string, data: Record<string, unknown>): void {
++		if (!this._url || this._entries >= MobileDebugContribution.MAX_ENTRIES) {
++			if (this._entries === MobileDebugContribution.MAX_ENTRIES) {
++				this._entries++;
++				const capped = JSON.stringify({ ts: new Date().toISOString(), event: 'log-capped', max: MobileDebugContribution.MAX_ENTRIES });
++				void fetch(this._url, { method: 'POST', body: capped, keepalive: true }).catch(() => { });
++			}
++			return;
++		}
++		this._entries++;
++		const line = JSON.stringify({ ts: new Date().toISOString(), event, ...data });
++		// Fire and forget: logging must never block the UI.
++		void fetch(this._url, { method: 'POST', body: line, keepalive: true }).catch(() => { });
++	}
++
++	private static _stringify(value: unknown): string {
++		if (typeof value === 'string') {
++			return value;
++		}
++		try {
++			return JSON.stringify(value);
++		} catch {
++			return String(value);
++		}
++	}
++
++	private static _describe(target: EventTarget | null): string {
++		if (!(target instanceof HTMLElement)) {
++			return String(target);
++		}
++		const id = target.id ? `#${target.id}` : '';
++		const cls = typeof target.className === 'string' && target.className ? `.${target.className.trim().split(/\s+/).join('.')}` : '';
++		return `${target.tagName.toLowerCase()}${id}${cls}`;
++	}
++}
++
++registerWorkbenchContribution2(MobileDebugContribution.ID, MobileDebugContribution, WorkbenchPhase.AfterRestored);
+
+Index: code-server/lib/vscode/src/vs/workbench/workbench.common.main.ts
+===================================================================
+--- code-server.orig/lib/vscode/src/vs/workbench/workbench.common.main.ts
++++ code-server/lib/vscode/src/vs/workbench/workbench.common.main.ts
+@@ -484,4 +484,7 @@
+ // Mobile Keyboard Toolbar
+ import './contrib/mobileKeyboard/browser/mobileKeyboard.contribution.js';
+ 
++// Mobile Debug Logging
++import './contrib/mobileKeyboard/browser/mobileDebug.contribution.js';
++
+ //#endregion

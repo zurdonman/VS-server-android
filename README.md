@@ -9,6 +9,40 @@ al teclado virtual en lugar de quedar tapada por él.
 > 🇪🇸 Documentación en español. El código y los comentarios de los parches están
 > en inglés (estilo upstream).
 
+## ⚡ Comandos rápidos (Termux en el móvil)
+
+```sh
+pkg install -y git
+git clone -b arena/55960f6b-vs-server-android https://github.com/zurdonman/VS-server-android.git
+cd VS-server-android
+bash scripts/termux-setup.sh       # instala dependencias + compila todo (20-60 min)
+bash scripts/termux-start.sh       # arranca en http://localhost:8080
+```
+
+Modo **debug** (recomendado si algo falla — guarda los logs en `Descargas/log/`):
+
+```sh
+bash scripts/termux-start.sh debug
+```
+
+> Nota: se clona la rama `arena/55960f6b-vs-server-android` porque el PR #1 aún no
+> está fusionado en `main`. Tras fusionarlo, `git clone` sin `-b` ya sirve.
+
+## 🐛 Modo debug (logs para diagnosticar errores)
+
+`bash scripts/termux-start.sh debug` arranca igual pero **registrando todo lo
+que pasa** en la carpeta **`Descargas/log/`** (se crea sola dentro de
+`Downloads`; la primera vez Termux pide permiso de almacenamiento — acepta):
+
+| Archivo | Qué guarda |
+|---|---|
+| `server.log` | Todo el servidor: errores, peticiones, trazas |
+| `client.log` | El **navegador**: errores de consola, excepciones, peticiones rechazadas y **trazas de teclado reales** (qué teclas/beforeinput manda el teclado virtual — justo lo que hace falta para depurar Enter/IME), cambios de foco y del teclado virtual |
+| `vscode-logs-<fecha>/` | Logs internos de VS Code (se copian al cerrar) |
+
+Si algo te falla: **mándame la carpeta `Descargas/log/` entera** (o su contenido)
+y con ella puedo ver exactamente qué evento llega (o no llega) y por qué.
+
 ## ❌ El problema
 
 `code-server` corre, pero en Android fallan cosas básicas:
@@ -111,10 +145,12 @@ patches/                     ← parches sobre lib/vscode (VS Code 1.141.0)
   mobile-*.diff              ← los arreglos móviles de este fork
 scripts/
   termux-setup.sh            ← instalación completa en Termux
-  termux-start.sh            ← arranque con opciones móviles
+  termux-start.sh            ← arranque (normal y debug: logs en Descargas/log/)
   fetch-vscode.sh            ← descarga VS Code en el commit fijado
   apply-patches.sh           ← aplica patches/series (no necesita quilt)
+  assemble-release.sh        ← empaqueta release/ listo para lanzar
 misc/android-as-linux.js     ← preload para extensiones
+src/node/routes/androidDebug.ts ← endpoint de logs del modo debug
 lib/vscode                   ← submódulo: fuente de VS Code (se descarga)
 ```
 
@@ -137,7 +173,8 @@ bash scripts/apply-patches.sh
 npm install
 npm run build
 VERSION=0.0.0 npm run build:vscode
-bash scripts/termux-start.sh
+bash scripts/assemble-release.sh
+bash scripts/termux-start.sh            # o: bash scripts/termux-start.sh debug
 ```
 
 ## 📄 Créditos y licencia
