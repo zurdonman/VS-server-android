@@ -56,20 +56,25 @@ export ELECTRON_SKIP_BINARY_DOWNLOAD=1
 npm install --no-audit --no-fund
 
 echo "==> [5/6] Fixing ripgrep for Android (prebuilt binary is glibc-only)"
-RG="lib/vscode/node_modules/@vscode/ripgrep/bin/rg"
-if [[ -e $RG || -L $RG ]] && ! "$RG" --version >/dev/null 2>&1; then
-  echo "    Replacing the bundled ripgrep with Termux's ripgrep"
-  rm -f "$RG"
-  cat > "$RG" << 'WRAP'
+for RG in \
+  "lib/vscode/node_modules/@vscode/ripgrep/bin/rg" \
+  "lib/vscode/node_modules/@vscode/ripgrep-universal/bin/linux-x64/rg" \
+  "lib/vscode/node_modules/@vscode/ripgrep-universal/bin/linux-arm64/rg"
+do
+  if [[ -e $RG || -L $RG ]] && ! "$RG" --version >/dev/null 2>&1; then
+    echo "    Replacing the bundled ripgrep with Termux's ripgrep ($RG)"
+    rm -f "$RG"
+    cat > "$RG" << 'WRAP'
 #!/data/data/com.termux/files/usr/bin/sh
 exec /data/data/com.termux/files/usr/bin/rg "$@"
 WRAP
-  chmod +x "$RG"
-fi
+    chmod +x "$RG"
+  fi
+done
 
 echo "==> [6/6] Building code-server + VS Code web (this is the slow part)"
 npm run build
-VERSION="${VERSION:-0.0.0}" npm run build:vscode
+VERSION="${VERSION:-0.0.0}" bash scripts/build-vscode-web.sh
 
 echo "==> Assembling the runnable release"
 bash scripts/assemble-release.sh
