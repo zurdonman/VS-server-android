@@ -97,7 +97,8 @@ fi
 # Si no hay compilacion (o quedo a medias), compilarla ahora: sin ella el
 # servidor no puede arrancar.
 if [[ ! -f release/out/node/entry.js ]]; then
-  echo "==> No hay build (release/). Compilando... (paso largo: 20-60 min)"
+  echo "==> No hay build (release/). Preparando dependencias y compilando... (paso largo: 20-60 min)"
+  bash scripts/termux-deps.sh
   npm run build
   bash scripts/build-vscode-web.sh
   bash scripts/assemble-release.sh
