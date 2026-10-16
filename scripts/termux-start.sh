@@ -19,7 +19,11 @@ if [[ "${1:-}" == "debug" ]]; then
 fi
 
 if [[ ! -f release/out/node/entry.js ]]; then
-  echo "Not built yet. Run scripts/termux-setup.sh first." >&2
+  echo "Todavia no esta compilado." >&2
+  echo "Ejecuta:  bash scripts/termux-setup.sh" >&2
+  echo "Si ya la ejecutaste y fallo, mira el final del log:" >&2
+  echo "  Descargas/log/setup.log   (o VS-server-android/log/setup.log)" >&2
+  echo "y mandame solo el bloque final que dice INSTALACION FALLIDA." >&2
   exit 1
 fi
 

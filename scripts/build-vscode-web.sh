@@ -58,11 +58,16 @@ JSON
 ) > product.json
 rm product.original.json
 
+# Llamamos a gulp directamente con un limite de heap sensato: el script npm de
+# VS Code pide --max-old-space-size=32384 (32 GB) y en un movil el gestor de
+# memoria de Android puede matar el proceso antes de tiempo.
+GULP=(node --experimental-strip-types "--max-old-space-size=${CS_BUILD_MEMORY:-6144}" ./node_modules/gulp/bin/gulp.js)
+
 echo "==> Bundling web client (core-ci-web)"
-npm run gulp core-ci-web
+"${GULP[@]}" core-ci-web
 
 echo "==> Packaging server (vscode-reh-web-$VSCODE_TARGET-min-ci)"
-npm run gulp "vscode-reh-web-$VSCODE_TARGET-min-ci"
+"${GULP[@]}" "vscode-reh-web-$VSCODE_TARGET-min-ci"
 
 # Reset so development after building is not stuck with the release commit.
 git checkout product.json

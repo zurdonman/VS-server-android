@@ -12,6 +12,38 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# Toda la salida se guarda en un log para poder diagnosticar sin copiar todo.
+DL="$HOME/storage/downloads"
+if [[ -d $DL ]]; then
+  LOG_DIR="$DL/log"
+else
+  LOG_DIR="$PWD/log"
+fi
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/setup.log"
+: > "$LOG_FILE"
+exec > >(tee -a "$LOG_FILE") 2>&1
+echo "==> La salida completa se guarda en: $LOG_FILE"
+
+on_exit() {
+  local code=$?
+  if [[ $code -ne 0 ]]; then
+    echo ""
+    echo "=============================================================="
+    echo " INSTALACION FALLIDA (codigo $code)"
+    echo " Copia SOLO este bloque final y mandamelo (es suficiente):"
+    echo "--------------------------------------------------------------"
+    tail -n 25 "$LOG_FILE"
+    echo "--------------------------------------------------------------"
+    echo " (el log completo esta en: $LOG_FILE)"
+    echo "=============================================================="
+  else
+    echo ""
+    echo "==> INSTALACION OK (log guardado en: $LOG_FILE)"
+  fi
+}
+trap on_exit EXIT
+
 echo "==> [1/6] Installing Termux packages"
 pkg update -y
 # x11-repo: libx11/libxkbfile son necesarias para compilar native-keymap
