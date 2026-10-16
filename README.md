@@ -25,6 +25,9 @@ vs-server                        # arranca en http://localhost:8080
 vs-server-debug                  # modo debug: logs en Descargas/log/
 ```
 
+> Si por costumbre escribes `vs-code` / `vs-code-debug`, también funcionan
+> (son alias de los mismos comandos).
+
 > `termux-setup.sh` instala esos comandos en el PATH de Termux. Si algún día
 > no los encuentras, cierra y vuelve a abrir Termux (o usa
 > `bash scripts/termux-start.sh` / `bash scripts/termux-start.sh debug` dentro
@@ -44,6 +47,12 @@ hacerlo a mano:
 cd VS-server-android
 git pull
 ```
+
+> **Importante**: si acabas de hacer `git pull` a mano y los comandos cortos no
+> existen aún en tu móvil (pasó si instalaste antes de que se añadieran),
+> ejecuta una sola vez `bash scripts/termux-update.sh` desde la carpeta del
+> proyecto: es instantáneo y deja `vs-server`, `vs-server-debug` y `vs-update`
+> instalados en el PATH.
 
 > Nota: se clona la rama `arena/55960f6b-vs-server-android` porque el PR #1 aún no
 > está fusionado en `main`. Tras fusionarlo, `git clone` sin `-b` ya sirve.

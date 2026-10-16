@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Alias de vs-server (por costumbre: vs-code).
+set -euo pipefail
+ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+exec bash "$ROOT/scripts/termux-start.sh" "$@"

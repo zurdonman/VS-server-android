@@ -90,6 +90,8 @@ fi
 ln -sf "$ROOT/bin/vs-server" "$BIN_DIR/vs-server"
 ln -sf "$ROOT/bin/vs-server-debug" "$BIN_DIR/vs-server-debug"
 ln -sf "$ROOT/bin/vs-update" "$BIN_DIR/vs-update"
+ln -sf "$ROOT/bin/vs-code" "$BIN_DIR/vs-code"
+ln -sf "$ROOT/bin/vs-code-debug" "$BIN_DIR/vs-code-debug"
 echo "    Comandos instalados en: $BIN_DIR"
 
 echo ""
