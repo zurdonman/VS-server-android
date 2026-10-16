@@ -89,6 +89,7 @@ if [[ ! -d $BIN_DIR || ! -w $BIN_DIR ]]; then
 fi
 ln -sf "$ROOT/bin/vs-server" "$BIN_DIR/vs-server"
 ln -sf "$ROOT/bin/vs-server-debug" "$BIN_DIR/vs-server-debug"
+ln -sf "$ROOT/bin/vs-update" "$BIN_DIR/vs-update"
 echo "    Comandos instalados en: $BIN_DIR"
 
 echo ""
@@ -97,6 +98,7 @@ echo " ¡Listo! Abre VS Code Server con un solo comando:"
 echo ""
 echo "     vs-server            (arranca el servidor)"
 echo "     vs-server-debug      (modo debug: logs en Descargas/log/)"
+echo "     vs-update            (actualiza el proyecto desde GitHub)"
 echo ""
 echo " y abre http://localhost:8080 en el navegador."
 echo " (Si los comandos no se encuentran, cierra y vuelve a abrir Termux)"
