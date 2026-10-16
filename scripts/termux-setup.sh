@@ -48,25 +48,16 @@ echo "==> [3/6] Applying the patch stack (upstream + mobile fixes)"
 bash scripts/apply-patches.sh
 
 echo "==> [4/6] Installing npm dependencies"
-# The upstream .npmrc in lib/vscode targets Electron; on Termux we build native
-# modules against the system Node instead.
-export npm_config_runtime=node
-export npm_config_target="$(node -p 'process.version.slice(1)')"
-export npm_config_disturl="https://nodejs.org/dist"
-export npm_config_build_from_source=true
-export npm_config_nodedir="${PREFIX:-/data/data/com.termux/files/usr}"
-# Not needed to build/run the server: e2e test browsers and the ONNX runtime for
-# experimental AI features (huge downloads).
-export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-export FOUNDRY_LOCAL_SKIP_INSTALL=1
-export ELECTRON_SKIP_BINARY_DOWNLOAD=1
-npm install --no-audit --no-fund
+bash scripts/termux-deps.sh
 
 echo "==> [5/6] Fixing ripgrep for Android (prebuilt binary is glibc-only)"
 for RG in \
   "lib/vscode/node_modules/@vscode/ripgrep/bin/rg" \
   "lib/vscode/node_modules/@vscode/ripgrep-universal/bin/linux-x64/rg" \
-  "lib/vscode/node_modules/@vscode/ripgrep-universal/bin/linux-arm64/rg"
+  "lib/vscode/node_modules/@vscode/ripgrep-universal/bin/linux-arm64/rg" \
+  "lib/vscode/remote/node_modules/@vscode/ripgrep/bin/rg" \
+  "lib/vscode/remote/node_modules/@vscode/ripgrep-universal/bin/linux-x64/rg" \
+  "lib/vscode/remote/node_modules/@vscode/ripgrep-universal/bin/linux-arm64/rg"
 do
   if [[ -e $RG || -L $RG ]] && ! "$RG" --version >/dev/null 2>&1; then
     echo "    Replacing the bundled ripgrep with Termux's ripgrep ($RG)"
