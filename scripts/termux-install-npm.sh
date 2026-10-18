@@ -16,7 +16,7 @@ set -euo pipefail
 cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.."
 
 REPO_URL="https://github.com/zurdonman/VS-server-android"
-ASSET_URL="$REPO_URL/releases/latest/download/vs-server-android-npm.tar.gz"
+ASSET_URL="${VS_SERVER_ASSET_URL:-$REPO_URL/releases/latest/download/vs-server-android-npm.tar.gz}"
 
 BIN_DIR="${PREFIX:-/data/data/com.termux/files/usr}/bin"
 if [[ ! -d $BIN_DIR || ! -w $BIN_DIR ]]; then
