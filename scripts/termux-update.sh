@@ -114,6 +114,13 @@ if [[ ! -f release/out/node/entry.js ]]; then
   fi
 fi
 
+# Si no hay nada compilado en local, la via rapida es el paquete precompilado.
+if [[ ! -f release/out/node/entry.js ]] && [[ ! -f .prebuilt-install ]]; then
+  echo ""
+  echo "No hay build local. Puedes instalar el precompilado (un comando):"
+  echo "    bash scripts/termux-install-npm.sh"
+fi
+
 # (Re)instalar los comandos cortos por si el proyecto se movio de carpeta.
 ROOT="$PWD"
 BIN_DIR="${PREFIX:-/data/data/com.termux/files/usr}/bin"

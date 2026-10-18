@@ -145,8 +145,12 @@ PATH. En el móvil solo se compilan los módulos nativos pequeños
 ```sh
 git clone https://github.com/zurdonman/VS-server-android.git
 cd VS-server-android
-bash scripts/termux-fast-setup.sh
+bash scripts/termux-install-npm.sh
 ```
+
+Este script instala el mismo paquete npm que la opción A (y de paso limpia los
+enlaces de una instalación anterior, que si no hacen que npm aborte con
+`EEXIST`).
 
 El script descarga el build precompilado del release, lo extrae, compila las
 mismas piezas nativas y deja los comandos en el PATH.
