@@ -120,6 +120,33 @@ if command -v rg >/dev/null 2>&1; then
   echo "ripgrep: se usa el rg de Termux."
 fi
 
+# 7) Extensiones de debugger (js-debug y compania). El build de CI no las
+#    incluye (descarga de assets de GitHub), asi que se anaden aqui, en el
+#    movil, que tiene red normal.
+if command -v jq >/dev/null 2>&1 && command -v unzip >/dev/null 2>&1; then
+  step "Anadiendo extensiones de depuracion (js-debug)"
+  for SPEC in \
+    "ms-vscode.js-debug|https://api.github.com/repos/microsoft/vscode-js-debug/releases/tags/v1.140.0" \
+    "ms-vscode.js-debug-companion|https://api.github.com/repos/microsoft/vscode-js-debug-companion/releases/tags/v1.1.3" \
+    "ms-vscode.vscode-js-profile-table|https://api.github.com/repos/microsoft/vscode-js-debug-profile-visualizer/releases/tags/v1.0.11"
+  do
+    NAME="${SPEC%%|*}"
+    API="${SPEC#*|}"
+    DEST="$RELEASE/lib/vscode/extensions/$NAME"
+    [[ -f "$DEST/package.json" ]] && continue
+    if ASSET=$(curl -sf --max-time 30 "$API" | jq -r '.assets[] | select(.name | endswith(".vsix")) | .url' | head -n1) \
+       && [[ -n $ASSET ]] \
+       && curl -sfL --max-time 300 -H "Accept: application/octet-stream" -o /tmp/ext.vsix "$ASSET"; then
+      mkdir -p "$DEST"
+      (cd "$DEST" && unzip -qo /tmp/ext.vsix 'extension/*' && mv extension/* . && rmdir extension)
+      echo "    Anadida $NAME"
+      rm -f /tmp/ext.vsix
+    else
+      echo "    (no se pudo descargar $NAME — se omite; el servidor funciona sin ella)"
+    fi
+  done
+fi
+
 if [[ $FAILED -eq 0 ]]; then
   touch "$RELEASE/.native-install-ok"
   echo ""
