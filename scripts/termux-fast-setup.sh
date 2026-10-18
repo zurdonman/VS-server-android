@@ -70,6 +70,25 @@ WRAP
   fi
 done
 
+# Extensiones de debugger (js-debug y compania): en el movil si hay red
+# normal de GitHub, se anaden tal cual las pondria la compilacion completa.
+echo "==> (opcional) Extensiones de debugger"
+for SPEC in   "ms-vscode.js-debug|https://api.github.com/repos/microsoft/vscode-js-debug/releases/tags/v1.140.0"   "ms-vscode.js-debug-companion|https://api.github.com/repos/microsoft/vscode-js-debug-companion/releases/tags/v1.1.3"   "ms-vscode.vscode-js-profile-table|https://api.github.com/repos/microsoft/vscode-js-profile-visualizer/releases/tags/v1.0.11"
+do
+  NAME="${SPEC%%|*}"
+  API="${SPEC#*|}"
+  DEST="release/lib/vscode/extensions/$NAME"
+  [[ -f "$DEST/package.json" ]] && continue
+  if ASSET=$(curl -sf --max-time 30 "$API" | jq -r '.assets[] | select(.name | endswith(".vsix")) | .url' | head -n1)      && [[ -n $ASSET ]]      && curl -sfL --max-time 300 -H "Accept: application/octet-stream" -o /tmp/ext.vsix "$ASSET"; then
+    mkdir -p "$DEST"
+    (cd "$DEST" && unzip -qo /tmp/ext.vsix 'extension/*' && mv extension/* . && rmdir extension)
+    echo "    Anadida $NAME"
+    rm -f /tmp/ext.vsix
+  else
+    echo "    (no se pudo descargar $NAME — se omite; el servidor funciona sin ella)"
+  fi
+done
+
 echo "==> [5/5] Instalando comandos"
 BIN_DIR="${PREFIX:-/data/data/com.termux/files/usr}/bin"
 if [[ ! -d $BIN_DIR || ! -w $BIN_DIR ]]; then

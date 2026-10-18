@@ -58,6 +58,14 @@ JSON
 ) > product.json
 rm product.original.json
 
+# CS_SKIP_MARKETPLACE_EXT=1: omite las extensiones que el build descarga de
+# GitHub (js-debug y compania). Util en entornos sin acceso a esos assets:
+# el producto funciona igual, solo sin debugger de JavaScript.
+if [[ ${CS_SKIP_MARKETPLACE_EXT:-0} == 1 ]]; then
+  jq '.builtInExtensions = [] | .webBuiltInExtensions = []' product.json > product.tmp.json
+  mv product.tmp.json product.json
+fi
+
 # Un fallo del typecheck (tsgo) no debe bloquear la compilacion en el movil;
 # se registra el error real pero el build continua.
 export VSCODE_TSGO_NONFATAL=1
