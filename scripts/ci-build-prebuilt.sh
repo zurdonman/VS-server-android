@@ -80,4 +80,8 @@ tar --exclude='release/node_modules' \
     --exclude='release/lib/vscode/.build' \
     -czf vs-server-android-prebuilt.tar.gz release
 ls -lh vs-server-android-prebuilt.tar.gz
+
+# Variante instalable con npm (mismo modelo que el code-server oficial).
+bash scripts/make-npm-package.sh "$ROOT/vs-server-android-npm.tar.gz"
+ls -lh vs-server-android-npm.tar.gz
 echo "=== CI_PREBUILT_OK ==="

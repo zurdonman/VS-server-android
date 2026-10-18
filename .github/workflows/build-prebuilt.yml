@@ -73,6 +73,13 @@ jobs:
           path: vs-server-android-prebuilt.tar.gz
           retention-days: 30
 
+      - name: Subir artefacto npm
+        uses: actions/upload-artifact@v4
+        with:
+          name: vs-server-android-npm
+          path: vs-server-android-npm.tar.gz
+          retention-days: 30
+
       - name: Subir log
         if: always()
         uses: actions/upload-artifact@v4
@@ -89,12 +96,31 @@ jobs:
           TAG: prebuilt
         run: |
           set -euo pipefail
+          NOTES="$(mktemp)"
+          cat > "$NOTES" << 'EOF'
+          ## VS Code Server para Android (Termux) - build precompilado
+
+          VS Code compilado con los parches moviles (teclado virtual, barra tactil,
+          zoom/viewport, depuracion). En el movil solo se compilan los modulos
+          nativos pequenos.
+
+          ### Instalar (script, desde el clon del repo)
+          ```sh
+          bash scripts/termux-fast-setup.sh
+          ```
+
+          ### Instalar (como el code-server oficial)
+          ```sh
+          npm install -g https://github.com/zurdonman/VS-server-android/releases/latest/download/vs-server-android-npm.tar.gz
+          ```
+          EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" vs-server-android-prebuilt.tar.gz --clobber
-            gh release edit "$TAG" --latest
+            gh release upload "$TAG" vs-server-android-npm.tar.gz --clobber
+            gh release edit "$TAG" --latest --notes-file "$NOTES"
           else
-            gh release create "$TAG" vs-server-android-prebuilt.tar.gz \
+            gh release create "$TAG" vs-server-android-prebuilt.tar.gz vs-server-android-npm.tar.gz \
               --title "VS Code Server Android (prebuilt)" \
-              --notes "Build precompilado de VS Code Server con los parches moviles. Instalar con: bash scripts/termux-fast-setup.sh" \
+              --notes-file "$NOTES" \
               --latest
           fi
