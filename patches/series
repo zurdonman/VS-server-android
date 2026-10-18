@@ -35,3 +35,4 @@ mobile-viewport.diff
 mobile-debug.diff
 mobile-build.diff
 mobile-tsgo.diff
+mobile-build-parallel.diff
