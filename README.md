@@ -128,12 +128,17 @@ trabajo pesado se hace en CI (GitHub Actions) y tú solo descargas el resultado
 ### Opción A — Como el code-server oficial (un comando)
 
 ```sh
-npm install -g https://github.com/zurdonman/VS-server-android/releases/latest/download/vs-server-android-npm.tar.gz
+npm install -g --force https://github.com/zurdonman/VS-server-android/releases/latest/download/vs-server-android-npm.tar.gz
 ```
 
 Esto instala los comandos `vs-server`, `vs-server-debug` y `vs-update` en el
 PATH. En el móvil solo se compilan los módulos nativos pequeños
 (`node-pty`, `spdlog`, `sqlite3`, `@parcel/watcher`): unos 10 minutos.
+
+> `--force` hace falta si ya tenías una instalación anterior de este proyecto:
+> npm no pisa los enlaces que ya existen en `$PREFIX/bin` (`vs-server`,
+> `vs-code`, …) y aborta con `EEXIST`. Con `--force` los sustituye por los
+> nuevos (los antiguos apuntaban a `~/vs-server`, que ya no hace falta).
 
 ### Opción B — Desde el clon del repositorio (un comando)
 

@@ -20,8 +20,14 @@ fi
 
 if [[ ! -f release/out/node/entry.js ]]; then
   echo "Todavia no esta compilado." >&2
-  echo "Ejecuta:  bash scripts/termux-setup.sh" >&2
-  echo "Si ya la ejecutaste y fallo, mira el final del log:" >&2
+  echo "" >&2
+  echo "Instala la version precompilada (un solo comando):" >&2
+  echo "  npm install -g --force https://github.com/zurdonman/VS-server-android/releases/latest/download/vs-server-android-npm.tar.gz" >&2
+  echo "" >&2
+  echo "o desde este repositorio:" >&2
+  echo "  bash scripts/termux-fast-setup.sh" >&2
+  echo "" >&2
+  echo "Si ya lo ejecutaste y fallo, mira el final del log:" >&2
   echo "  Descargas/log/setup.log   (o VS-server-android/log/setup.log)" >&2
   echo "y mandame solo el bloque final que dice INSTALACION FALLIDA." >&2
   exit 1
