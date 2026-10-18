@@ -70,6 +70,21 @@ fi
 # se registra el error real pero el build continua.
 export VSCODE_TSGO_NONFATAL=1
 
+# esbuild esta escrito en Go: al minificar el bundle completo puede RSS de
+# >2.5 GB y morir por OOM (matarlo el kernel) en equipos con poca memoria
+# (moviles, CI). Limitando su recolector de basura baja el pico de memoria.
+# En equipos con >= 6 GB dejamos los valores por defecto (build mas rapido).
+AVAIL_MB="$(awk '/^MemAvailable:/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 8192)"
+if [[ -z "${GOMEMLIMIT:-}" && "${AVAIL_MB}" -lt 6144 ]]; then
+  export GOMEMLIMIT="${CS_GOMEMLIMIT:-$((AVAIL_MB * 45 / 100))MiB}"
+  export GOGC="${CS_GOGC:-25}"
+  echo "==> Memoria limitada: GOMEMLIMIT=$GOMEMLIMIT GOGC=$GOGC (RAM disponible: ${AVAIL_MB} MB)"
+fi
+
+# Empaquetado de extensiones: se limita el numero de procesos esbuild en
+# paralelo (por defecto 3) para no agotar la memoria.
+export VSCODE_BUILD_EXTENSIONS_CONCURRENCY="${VSCODE_BUILD_EXTENSIONS_CONCURRENCY:-3}"
+
 # Llamamos a gulp directamente con un limite de heap sensato: el script npm de
 # VS Code pide --max-old-space-size=32384 (32 GB) y en un movil el gestor de
 # memoria de Android puede matar el proceso antes de tiempo.
