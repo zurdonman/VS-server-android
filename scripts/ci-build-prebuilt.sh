@@ -23,6 +23,20 @@ export VSCODE_SKIP_NODE_DOWNLOAD=1
 export CS_SKIP_MARKETPLACE_EXT=1
 export VSCODE_BUILD_EXTENSIONS_CONCURRENCY=3
 
+# Log completo + anotacion de error en el job (util para depurar sin abrir
+# los logs completos de Actions).
+LOG_FILE="${LOG_FILE:-ci-build.log}"
+: > "$LOG_FILE"
+exec > >(tee -a "$LOG_FILE") 2>&1
+on_error() {
+  local rc=$?
+  if [[ $rc -ne 0 ]]; then
+    echo "::error title=Fallo en el build precompilado::$(tail -n 25 "$LOG_FILE" | sed 's/%/%25/g; s/\r//g' | tr '\n' '%0A')"
+  fi
+  exit $rc
+}
+trap on_error EXIT
+
 echo "==> [1/7] Codigo fuente de VS Code"
 bash scripts/fetch-vscode.sh
 

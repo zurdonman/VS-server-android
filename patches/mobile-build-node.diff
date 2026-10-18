@@ -1,13 +1,8 @@
 Index: code-server/lib/vscode/build/gulpfile.reh.ts
 ===================================================================
-diff --git a/build/gulpfile.reh.ts b/build/gulpfile.reh.ts
-index c643cf99..55156f98 100644
 --- code-server.orig/lib/vscode/build/gulpfile.reh.ts
 +++ code-server/lib/vscode/build/gulpfile.reh.ts
-@@ -165,12 +165,19 @@ function fetchNodejsFromInternalFeed(feed: string, assetName: string, version: s
- }
- 
- BUILD_TARGETS.forEach(({ platform, arch }) => {
+@@ -168,6 +168,13 @@
  	task.task(task.define(`node-${platform}-${arch}`, () => {
  		const nodePath = path.join('.build', 'node', `v${nodeVersion}`, `${platform}-${arch}`);
  
@@ -21,29 +16,3 @@ index c643cf99..55156f98 100644
  		if (!fs.existsSync(nodePath)) {
  			util.rimraf(nodePath);
  
- 			return nodejs(platform, arch)!
- 				.pipe(vfs.dest(nodePath));
- 		}
-@@ -257,16 +264,21 @@ function fetchNodejs(assetName: string, checksumSha256: string | undefined): Nod
- }
- 
- function packageTask(type: string, platform: string, arch: string, sourceFolderName: string, destinationFolderName: string) {
- 	const destination = path.join(BUILD_ROOT, destinationFolderName);
- 
- 	return () => {
-+		const jsFilterMain = util.filter(data => !data.isDirectory() && /\.js$/.test(data.path));
-+
- 		const src = gulp.src(sourceFolderName + '/**', { base: '.' })
- 			.pipe(rename(function (path) { path.dirname = path.dirname!.replace(new RegExp('^' + sourceFolderName), 'out'); }))
- 			.pipe(util.setExecutableBit(['**/*.sh']))
--			.pipe(filter(['**', '!**/*.{js,css}.map']));
-+			.pipe(filter(['**', '!**/*.{js,css}.map']))
-+			.pipe(jsFilterMain)
-+			.pipe(util.stripSourceMappingURL())
-+			.pipe(jsFilterMain.restore);
- 
- 		const workspaceExtensionPoints = ['debuggers', 'jsonValidation'];
- 		const isUIExtension = (manifest: { extensionKind?: string; main?: string; contributes?: Record<string, unknown> }) => {
- 			switch (manifest.extensionKind) {
- 				case 'ui': return true;
- 				case 'workspace': return false;
