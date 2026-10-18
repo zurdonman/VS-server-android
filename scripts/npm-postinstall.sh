@@ -128,7 +128,7 @@ if command -v jq >/dev/null 2>&1 && command -v unzip >/dev/null 2>&1; then
   for SPEC in \
     "ms-vscode.js-debug|https://api.github.com/repos/microsoft/vscode-js-debug/releases/tags/v1.140.0" \
     "ms-vscode.js-debug-companion|https://api.github.com/repos/microsoft/vscode-js-debug-companion/releases/tags/v1.1.3" \
-    "ms-vscode.vscode-js-profile-table|https://api.github.com/repos/microsoft/vscode-js-debug-profile-visualizer/releases/tags/v1.0.11"
+    "ms-vscode.vscode-js-profile-table|https://api.github.com/repos/microsoft/vscode-js-profile-visualizer/releases/tags/v1.0.11"
   do
     NAME="${SPEC%%|*}"
     API="${SPEC#*|}"
