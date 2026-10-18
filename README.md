@@ -121,32 +121,49 @@ Extras incluidos:
 
 ## 📱 Instalación (Termux en el propio móvil)
 
-1. Instala **Termux desde [F-Droid](https://f-droid.org/en/packages/com.termux/)**
-   (la versión de Play Store está desactualizada).
+Hay dos formas. **Ninguna compila el motor de VS Code en el móvil**: ese
+trabajo pesado se hace en CI (GitHub Actions) y tú solo descargas el resultado
+(igual que hace el `code-server` oficial al instalarse).
 
-2. Clona este repositorio y ejecuta el instalador:
+### Opción A — Como el code-server oficial (un comando)
 
 ```sh
-pkg install -y git
-git clone https://github.com/zurdonman/VS-server-android.git
-cd VS-server-android
-bash scripts/termux-setup.sh
+npm install -g https://github.com/zurdonman/VS-server-android/releases/latest/download/vs-server-android-npm.tar.gz
 ```
 
-El script instala dependencias, descarga el código de VS Code (versión fijada),
-aplica todos los parches y compila todo. **La compilación en el móvil es lenta**
-(20–60 min según el dispositivo) y necesita espacio (~6 GB) y RAM. Si se te
-queda corto el almacenamiento interno, ejecuta Termux con almacenamiento
-compartido y clona en `~/storage/shared/…` (aunque evita `/sdcard` para git).
+Esto instala los comandos `vs-server`, `vs-server-debug` y `vs-update` en el
+PATH. En el móvil solo se compilan los módulos nativos pequeños
+(`node-pty`, `spdlog`, `sqlite3`, `@parcel/watcher`): unos 10 minutos.
 
-3. Arranca:
+### Opción B — Desde el clon del repositorio (un comando)
+
+```sh
+git clone https://github.com/zurdonman/VS-server-android.git
+cd VS-server-android
+bash scripts/termux-fast-setup.sh
+```
+
+El script descarga el build precompilado del release, lo extrae, compila las
+mismas piezas nativas y deja los comandos en el PATH.
+
+En ambos casos:
 
 ```sh
 vs-server
 ```
 
-4. Abre `http://localhost:8080` en el navegador del móvil (Chrome recomendado).
-   Desde otro dispositivo en la misma red: `http://<ip-del-móvil>:8080`.
+y abre `http://localhost:8080` en el navegador del móvil (Chrome recomendado).
+Desde otro dispositivo en la misma red: `http://<ip-del-móvil>:8080`.
+
+### Opción C — Compilarlo todo en el móvil (solo si quieres)
+
+```sh
+bash scripts/termux-setup.sh
+```
+
+Compila todo desde cero en el móvil: **20–60 min**, necesita ~6 GB de
+espacio y bastante RAM. Necesita almacenamiento compartido (y evita
+`/sdcard` para git).
 
 ### Variables útiles
 

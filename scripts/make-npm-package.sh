@@ -53,7 +53,7 @@ cat > "$PKG/package.json" << EOF
     "vs-update": "bin/vs-update"
   },
   "scripts": {
-    "postinstall": "sh ./scripts/postinstall.sh"
+    "postinstall": "bash ./scripts/postinstall.sh"
   },
   "engines": { "node": ">=24" }
 }

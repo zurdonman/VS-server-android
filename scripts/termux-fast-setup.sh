@@ -45,13 +45,33 @@ export npm_config_nodedir="${PREFIX:-/data/data/com.termux/files/usr}"
 export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 export FOUNDRY_LOCAL_SKIP_INSTALL=1
 export ELECTRON_SKIP_BINARY_DOWNLOAD=1
+# El postinstall oficial de code-server exige node 24 exacto; usamos el mayor
+# de la version que se esta ejecutando para no abortar la instalacion.
+export FORCE_NODE_VERSION="$(node -p 'process.versions.node.split(".")[0]')"
 
-# Dependencias del servidor (argon2, etc.). Su postinstall oficial instala
-# tambien las de lib/vscode (node-pty, spdlog, sqlite3...): es exactamente lo
-# que hace el code-server oficial al instalarse en Termux.
-(cd release && npm install --omit=dev --no-audit --no-fund)
-# Por si el postinstall no llego:
-(cd release/lib/vscode && npm install --omit=dev --no-audit --no-fund)
+# Dependencias del servidor (argon2, etc.) y las de lib/vscode (node-pty,
+# spdlog, sqlite3...). Se instalan SIN compilar primero (rapido) y luego se
+# compilan las nativas una a una: asi que una opcional que falle (kerberos)
+# no tira el resto. Es el mismo criterio que usa el code-server oficial.
+(cd release && npm install --omit=dev --no-audit --no-fund --ignore-scripts) || true
+(cd release/lib/vscode && npm install --omit=dev --no-audit --no-fund --ignore-scripts) || true
+(cd release/lib/vscode/extensions && npm install --omit=dev --no-audit --no-fund --ignore-scripts) || true
+
+for m in node-pty @vscode/spdlog @vscode/sqlite3 @parcel/watcher @vscode/ripgrep-universal; do
+  if [ -d "release/lib/vscode/node_modules/$m" ]; then
+    echo "    compilando $m"
+    (cd release/lib/vscode && npm rebuild "$m") || true
+  fi
+done
+if [ -d release/node_modules/argon2 ]; then
+  echo "    compilando argon2 (servidor)"
+  (cd release && npm rebuild argon2) || true
+fi
+# krb5 lo necesita 'kerberos' (opcional).
+if [ -d release/lib/vscode/node_modules/kerberos ]; then
+  echo "    compilando kerberos (opcional)"
+  (cd release/lib/vscode && npm rebuild kerberos) || echo "    (kerberos omitido: no hace falta para el uso normal)"
+fi
 
 # El ripgrep precompilado es glibc: se envuelve con el rg de Termux.
 for RG in \
