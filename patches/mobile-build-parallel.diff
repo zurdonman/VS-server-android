@@ -1,7 +1,7 @@
 Index: code-server/lib/vscode/build/lib/extensions.ts
 ===================================================================
 diff --git a/build/lib/extensions.ts b/build/lib/extensions.ts
-index 10bd9fbd..84dd19be 100644
+index 10bd9fbd..184fce69 100644
 --- code-server.orig/lib/vscode/build/lib/extensions.ts
 +++ code-server/lib/vscode/build/lib/extensions.ts
 @@ -16,14 +16,16 @@ import { createStatsStream } from './stats.ts';
@@ -21,7 +21,7 @@ index 10bd9fbd..84dd19be 100644
  const require = createRequire(import.meta.url);
  
  const root = path.dirname(path.dirname(import.meta.dirname));
-@@ -407,12 +409,47 @@ export function packageAllLocalExtensionsStream(forWeb: boolean): Stream {
+@@ -407,12 +409,52 @@ export function packageAllLocalExtensionsStream(forWeb: boolean): Stream {
  }
  
  /**
@@ -42,7 +42,12 @@ index 10bd9fbd..84dd19be 100644
 +		while (!done && active < limit && index < streamFactories.length) {
 +			const src = streamFactories[index++]();
 +			active++;
-+			src.on('data', (chunk: unknown) => { out.write(chunk); });
++			src.on('data', (chunk: unknown) => {
++				if (!(out as unknown as { write(c: unknown): boolean }).write(chunk)) {
++					src.pause();
++					(out as unknown as { once(e: string, cb: () => void): void }).once('drain', () => src.resume());
++				}
++			});
 +			src.on('end', () => {
 +				active--;
 +				if (active === 0 && index >= streamFactories.length) {
@@ -69,7 +74,7 @@ index 10bd9fbd..84dd19be 100644
  		(glob.sync('extensions/*/package.json') as string[])
  			.map(manifestPath => {
  				const absoluteManifestPath = path.join(root, manifestPath);
-@@ -423,18 +460,20 @@ function doPackageLocalExtensionsStream(forWeb: boolean, native: boolean): Strea
+@@ -423,18 +465,20 @@ function doPackageLocalExtensionsStream(forWeb: boolean, native: boolean): Strea
  			.filter(({ name }) => native ? nativeExtensionsSet.has(name) : !nativeExtensionsSet.has(name))
  			.filter(({ name }) => excludedExtensions.indexOf(name) === -1)
  			.filter(({ name }) => builtInExtensions.every(b => b.name !== name))
@@ -94,7 +99,7 @@ index 10bd9fbd..84dd19be 100644
  	let result: Stream;
  	if (forWeb) {
  		result = localExtensionsStream;
-@@ -484,12 +523,122 @@ export function packageCopilotExtensionStream(): Stream {
+@@ -484,12 +528,122 @@ export function packageCopilotExtensionStream(): Stream {
  		gulp.src(dependenciesSrc, { base: '.' })
  			.pipe(util2.cleanNodeModules(path.join(root, 'build', '.moduleignore')))
  			.pipe(util2.cleanNodeModules(path.join(root, 'build', `.moduleignore.${process.platform}`)))
