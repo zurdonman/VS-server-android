@@ -15,7 +15,7 @@ Index: code-server/lib/vscode/src/vs/workbench/contrib/mobileKeyboard/browser/mo
 ===================================================================
 --- code-server.orig/lib/vscode/src/vs/workbench/contrib/mobileKeyboard/browser/mobileGestures.contribution.ts
 +++ code-server/lib/vscode/src/vs/workbench/contrib/mobileKeyboard/browser/mobileGestures.contribution.ts
-@@ -0,0 +1,129 @@
+@@ -0,0 +1,140 @@
 +/*---------------------------------------------------------------------------------------------
 + *  Copyright (c) Microsoft Corporation. All rights reserved.
 + *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -87,6 +87,12 @@ Index: code-server/lib/vscode/src/vs/workbench/contrib/mobileKeyboard/browser/mo
 +		if (e.touches.length !== 2) {
 +			return;
 +		}
++		// Solo gestionamos el pincha cuando el gesto empieza sobre el editor.
++		// En el resto de la interfaz dejamos que el navegador haga su zoom
++		// nativo (zoom de toda la pagina, muy util en un movil).
++		if (!this._isInsideEditor(e)) {
++			return;
++		}
 +		this._isPinching = true;
 +		this._pinchDistance = this._distance(e.touches);
 +		this._pinchFontSize = this._fontSize();
@@ -135,6 +141,11 @@ Index: code-server/lib/vscode/src/vs/workbench/contrib/mobileKeyboard/browser/mo
 +	private _fontSize(): number {
 +		const size = this._configurationService.getValue<number>(FONT_SIZE_KEY);
 +		return typeof size === 'number' ? size : 14;
++	}
++
++	private _isInsideEditor(e: TouchEvent): boolean {
++		const target = e.target;
++		return target instanceof Element && !!target.closest('.monaco-editor');
 +	}
 +
 +	private _distance(touches: TouchList): number {
