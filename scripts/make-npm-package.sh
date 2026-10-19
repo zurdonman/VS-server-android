@@ -120,13 +120,30 @@ EOF
 
 cat > "$PKG/bin/vs-update" << 'EOF'
 #!/usr/bin/env bash
-# VS Code Server para Android/Termux — actualiza a la ultima version publicada
+# VS Code Server para Android/Termux — actualiza a la ultima version publicada.
+#
+# No reinstala con npm (eso borraria las piezas nativas ya compiladas y
+# obligaria a recompilarlas): descarga el paquete, copia encima el codigo
+# nuevo y conserva los node_modules existentes.
 set -euo pipefail
 PKG="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
 URL="https://github.com/zurdonman/VS-server-android/releases/latest/download/vs-server-android-npm.tar.gz"
+
 echo "==> Actualizando VS Code Server Android"
 echo "    $URL"
-npm install -g "$URL" --force
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+if ! curl -fL --retry 2 -o "$TMP/pkg.tar.gz" "$URL"; then
+  echo "No se pudo descargar la actualizacion." >&2
+  exit 1
+fi
+tar xzf "$TMP/pkg.tar.gz" -C "$TMP"
+if [[ ! -d "$TMP/package/release/out" ]]; then
+  echo "El paquete descargado no parece valido." >&2
+  exit 1
+fi
+echo "==> Copiando el codigo nuevo (se conservan las piezas nativas)"
+tar -C "$TMP/package/release" -cf - . | tar -C "$PKG/release" -xf -
 echo ""
 echo "Listo. Arranca con:  vs-server"
 EOF
