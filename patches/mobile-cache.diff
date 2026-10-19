@@ -4,7 +4,8 @@ VS Code serves the static files with "Cache-Control: public, max-age=31536000"
 and the URL of the bundle does not change between builds (it is derived from
 the VS Code commit), so after updating the server the browser keeps using the
 old bundle. With an ETag the browser revalidates on every load and only
-downloads the file again when it really changed.
+downloads the file again when it really changed. The workbench HTML itself is
+sent with "no-store" so the browser never keeps a stale bundle URL.
 
 Index: code-server/lib/vscode/src/vs/server/node/webClientServer.ts
 ===================================================================
@@ -26,3 +27,16 @@ Index: code-server/lib/vscode/src/vs/server/node/webClientServer.ts
  	}
  
  	private _getResourceURLTemplateAuthority(uri: URI): string | undefined {
+@@ -518,7 +525,11 @@
+ 
+ 		const headers: http.OutgoingHttpHeaders = {
+ 			'Content-Type': 'text/html',
+-			'Content-Security-Policy': cspDirectives
++			'Content-Security-Policy': cspDirectives,
++			// Android/Termux (code-server): el HTML apunta al bundle del
++			// workbench, asi que nunca debe guardarse en cache: si el
++			// navegador lo cachea, se queda con la URL del bundle viejo.
++			'Cache-Control': 'no-store'
+ 		};
+ 		if (this._connectionToken.type !== ServerConnectionTokenType.None) {
+ 			// At this point we know the client has a valid cookie
