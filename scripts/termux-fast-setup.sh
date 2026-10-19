@@ -38,7 +38,8 @@ rm -f /tmp/vs-server-prebuilt.tar.gz
 echo "==> [4/5] Compilando las piezas nativas en el movil (~10 min)"
 export PYTHON=python3
 export npm_config_runtime=node
-export npm_config_target="$(node -p 'process.version.slice(1)')"
+npm_config_target="$(node -p 'process.version.slice(1)')"
+export npm_config_target
 export npm_config_disturl="https://nodejs.org/dist"
 export npm_config_build_from_source=true
 export npm_config_nodedir="${PREFIX:-/data/data/com.termux/files/usr}"
@@ -47,7 +48,8 @@ export FOUNDRY_LOCAL_SKIP_INSTALL=1
 export ELECTRON_SKIP_BINARY_DOWNLOAD=1
 # El postinstall oficial de code-server exige node 24 exacto; usamos el mayor
 # de la version que se esta ejecutando para no abortar la instalacion.
-export FORCE_NODE_VERSION="$(node -p 'process.versions.node.split(".")[0]')"
+FORCE_NODE_VERSION="$(node -p 'process.versions.node.split(".")[0]')"
+export FORCE_NODE_VERSION
 
 # Dependencias del servidor (argon2, etc.) y las de lib/vscode (node-pty,
 # spdlog, sqlite3...). Se instalan SIN compilar primero (rapido) y luego se

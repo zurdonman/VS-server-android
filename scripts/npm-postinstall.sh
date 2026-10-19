@@ -41,7 +41,8 @@ exec > >(tee -a "$LOG_FILE") 2>&1
 
 export PYTHON=python3
 export npm_config_runtime=node
-export npm_config_target="$(node -p 'process.version.slice(1)' 2>/dev/null || echo 24.0.0)"
+npm_config_target="$(node -p 'process.version.slice(1)' 2>/dev/null || echo 24.0.0)"
+export npm_config_target
 export npm_config_disturl="https://nodejs.org/dist"
 export npm_config_build_from_source=true
 export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
@@ -49,7 +50,8 @@ export FOUNDRY_LOCAL_SKIP_INSTALL=1
 export ELECTRON_SKIP_BINARY_DOWNLOAD=1
 # El postinstall oficial de code-server exige node 24 exacto; usamos el mayor
 # de la version que estamos ejecutando para no abortar la instalacion.
-export FORCE_NODE_VERSION="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 24)"
+FORCE_NODE_VERSION="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 24)"
+export FORCE_NODE_VERSION
 
 # Prefijo de Node: en Termux es $PREFIX, pero si no existe (u otro entorno)
 # se deduce de la ruta del propio binario node (asi node-gyp encuentra las
@@ -101,7 +103,7 @@ for dir in "$RELEASE/lib/vscode" "$RELEASE"; do
   [[ -d "$dir/node_modules" ]] || continue
   for m in "${NATIVES[@]}"; do
     if [[ -d "$dir/node_modules/$m" ]]; then
-      step "Compilando $m en ${dir#$PKG/}"
+      step "Compilando $m en ${dir#"$PKG"/}"
       ( cd "$dir" && npm rebuild "$m" ) || FAILED=1
     fi
   done

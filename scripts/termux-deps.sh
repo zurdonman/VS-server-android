@@ -15,7 +15,8 @@ cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.."
 
 export PYTHON=python3
 export npm_config_runtime=node
-export npm_config_target="$(node -p 'process.version.slice(1)')"
+npm_config_target="$(node -p 'process.version.slice(1)')"
+export npm_config_target
 export npm_config_disturl="https://nodejs.org/dist"
 export npm_config_build_from_source=true
 export npm_config_nodedir="${PREFIX:-/data/data/com.termux/files/usr}"
