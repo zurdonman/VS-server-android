@@ -72,6 +72,14 @@ git pull
 > Nota: se clona la rama `arena/55960f6b-vs-server-android` porque el PR #1 aún no
 > está fusionado en `main`. Tras fusionarlo, `git clone` sin `-b` ya sirve.
 
+> **Importante:** después de `vs-update` hay que **volver a arrancar el
+> servidor** (`vs-server`) y **recargar la página** del navegador. El comando
+> ya detiene el servidor viejo por ti y te avisa. Cada compilación lleva un
+> identificador propio en la URL (`/stable-mobile-<fecha>/`), así que el
+> navegador descarga el bundle nuevo en vez de usar el que tiene cacheado
+> (VS Code sirve el bundle con una caché de un año, y por eso antes los
+> cambios no se veían en el móvil).
+
 ## 🐛 Modo debug (logs para diagnosticar errores)
 
 `vs-server-debug` (o `bash scripts/termux-start.sh debug`) arranca igual pero

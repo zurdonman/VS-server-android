@@ -14,6 +14,14 @@ export VSCODE_TARGET="${VSCODE_TARGET:-linux-x64}"
 export VSCODE_QUALITY="${VSCODE_QUALITY:-stable}"
 export VERSION="${VERSION:-0.0.0}"
 
+# Identificador unico de esta compilacion. Se usa como "commit" del
+# product.json: la ruta del cliente web (/stable-<commit>/) y por tanto la URL
+# del bundle cambian en cada build, asi el navegador descarga el bundle nuevo
+# en vez de usar el que tiene cacheado (el workbench se sirve con max-age de
+# un ano, asi que sin esto el movil nunca veria las actualizaciones).
+BUILD_ID="${BUILD_ID:-$(date -u +%Y%m%d%H%M%S)}"
+echo "Build ID: $BUILD_ID"
+
 cd lib/vscode
 
 # Set the product.json branding (same overlay as ci/build/build-vscode.sh).
@@ -53,7 +61,8 @@ jq --slurp '.[0] * .[1]' product.original.json <(cat << JSON
   ],
   "aiConfig": { "ariaKey": "code-server" },
   "extensionPointExtensionKind": { "typescriptServerPlugins": ["workspace"] },
-  "mobileUiKind": "desktop"
+  "mobileUiKind": "desktop",
+  "commit": "mobile-$BUILD_ID"
 }
 JSON
 ) > product.json

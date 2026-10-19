@@ -121,6 +121,19 @@ if [[ ! -f release/out/node/entry.js ]] && [[ ! -f .prebuilt-install ]]; then
   echo "    bash scripts/termux-install-npm.sh"
 fi
 
+# El servidor lee el product.json al arrancar (de ahi sale la ruta del cliente
+# web y el bundle que sirve). Si estaba en marcha hay que reiniciarlo para que
+# use el build nuevo; si no, el navegador se queda con el bundle viejo (que
+# cachea durante un ano) y no se ve ningun cambio.
+if pgrep -f "release/out/node/entry.js" >/dev/null 2>&1; then
+  echo ""
+  echo "==> Deteniendo el servidor para que arranque con el build nuevo"
+  pkill -f "release/out/node/entry.js" >/dev/null 2>&1 || true
+  sleep 2
+  echo "    Vuelve a lanzarlo con:  vs-server"
+  echo "    y RECARGA la pagina del navegador (la URL lleva ahora el build nuevo)."
+fi
+
 # (Re)instalar los comandos cortos por si el proyecto se movio de carpeta.
 ROOT="$PWD"
 BIN_DIR="${PREFIX:-/data/data/com.termux/files/usr}/bin"
