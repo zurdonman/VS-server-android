@@ -144,6 +144,50 @@ if [[ ! -d "$TMP/package/release/out" ]]; then
 fi
 echo "==> Copiando el codigo nuevo (se conservan las piezas nativas)"
 tar -C "$TMP/package/release" -cf - . | tar -C "$PKG/release" -xf -
+
+# Copia tambien los lanzadores (asi el vs-update se renueva solo). El vs-update
+# se cambia por un fichero temporal: renombrar no rompe el que se esta
+# ejecutando ahora mismo.
+if [[ -d "$TMP/package/bin" ]]; then
+  for f in "$TMP/package/bin"/vs-server "$TMP/package/bin"/vs-server-debug; do
+    [[ -f $f ]] || continue
+    cp -f "$f" "$PKG/bin/" 2>/dev/null || true
+  done
+  if [[ -f "$TMP/package/bin/vs-update" ]]; then
+    cp -f "$TMP/package/bin/vs-update" "$PKG/bin/.vs-update.new" 2>/dev/null || true
+    mv -f "$PKG/bin/.vs-update.new" "$PKG/bin/vs-update" 2>/dev/null || true
+  fi
+fi
+
+# Comprobacion rapida: el bundle tiene que traer los arreglos moviles.
+BUNDLE="$(find "$PKG/release/lib/vscode/out/vs/workbench" -maxdepth 1 -name 'workbench.web.main*.js' 2>/dev/null | head -n 1)"
+if [[ -n $BUNDLE ]]; then
+  if grep -q "Tamano de letra del editor" "$BUNDLE"; then
+    echo "    bundle correcto (incluye los arreglos moviles)"
+  else
+    echo "    AVISO: el bundle no parece el esperado"
+  fi
+fi
+
+# El servidor lee el product.json al arrancar (de ahi sale la URL del cliente
+# y el bundle que sirve). Si estaba en marcha hay que reiniciarlo, si no se
+# queda con el bundle viejo en cache.
+if pgrep -f "release/out/node/entry.js" >/dev/null 2>&1; then
+  echo "==> Deteniendo el servidor (para que arranque con el build nuevo)"
+  pkill -f "release/out/node/entry.js" >/dev/null 2>&1 || true
+  sleep 2
+  echo "    Vuelve a lanzarlo con:  vs-server"
+fi
+
+BUILD_COMMIT=""
+if [[ -f "$PKG/release/lib/vscode/product.json" ]]; then
+  BUILD_COMMIT="$(sed -n 's/.*"commit"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$PKG/release/lib/vscode/product.json" | head -n 1)"
+fi
+if [[ -n $BUILD_COMMIT ]]; then
+  echo "    URL del cliente: http://localhost:8080/stable-$BUILD_COMMIT/"
+  echo "    (abre esa URL: asi el navegador descarga el bundle nuevo)"
+fi
+
 echo ""
 echo "Listo. Arranca con:  vs-server"
 EOF

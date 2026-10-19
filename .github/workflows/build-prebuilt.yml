@@ -15,8 +15,11 @@ on:
     branches:
       - arena/55960f6b-vs-server-android
     paths:
+      # Solo lo que cambia el bundle publicado. El resto de scripts (los del
+      # movil) no afecta al prebuilt, asi que no hay que recompilar por ello.
       - "patches/**"
-      - "scripts/**"
+      - "scripts/build-vscode-web.sh"
+      - "scripts/ci-build-prebuilt.sh"
       - "src/**"
       - "package.json"
       - "package-lock.json"
