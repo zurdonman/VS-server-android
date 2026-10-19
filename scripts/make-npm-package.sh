@@ -50,7 +50,8 @@ cat > "$PKG/package.json" << EOF
     "vs-server-debug": "bin/vs-server-debug",
     "vs-code": "bin/vs-server",
     "vs-code-debug": "bin/vs-server-debug",
-    "vs-update": "bin/vs-update"
+    "vs-update": "bin/vs-update",
+    "colab-fix": "bin/colab-fix"
   },
   "scripts": {
     "postinstall": "bash ./scripts/postinstall.sh"
@@ -192,6 +193,16 @@ echo ""
 echo "Listo. Arranca con:  vs-server"
 EOF
 
+cat > "$PKG/bin/colab-fix" << 'EOF'
+#!/usr/bin/env bash
+# VS Code Server para Android/Termux — parche de la extension de Colab para
+# poder leer notebooks que ya existen en tu Drive (scope drive.readonly).
+set -euo pipefail
+PKG="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+exec bash "$PKG/scripts/termux-colab-fix.sh" "$@"
+EOF
+
+cp "$ROOT/scripts/termux-colab-fix.sh" "$PKG/scripts/termux-colab-fix.sh"
 cp "$ROOT/scripts/npm-postinstall.sh" "$PKG/scripts/postinstall.sh"
 chmod +x "$PKG/bin/"* "$PKG/scripts/postinstall.sh"
 

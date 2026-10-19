@@ -20,6 +20,7 @@ on:
       - "patches/**"
       - "scripts/build-vscode-web.sh"
       - "scripts/ci-build-prebuilt.sh"
+      - "scripts/make-npm-package.sh"
       - "src/**"
       - "package.json"
       - "package-lock.json"

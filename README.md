@@ -245,9 +245,19 @@ ahora: la URL a la que vuelve Google se resuelve por la ruta de callback
 > from URL") puede devolver `File not found` aunque el login esté bien: la
 > extensión pide a Google con el scope `drive.file`, que **solo da acceso a
 > ficheros que creó la propia app de Colab**. Para un notebook que ya existía
-> en tu Drive, Google responde 404. No es un problema de este fork: prueba con
-> un notebook nuevo, o abre Colab en el navegador y conéctalo al servidor de
-> Colab de VS Code.
+> en tu Drive, Google responde 404.
+>
+> Solución: el comando **`colab-fix`** parchea la extensión instalada para que
+> pida `drive.readonly` (lectura de todo tu Drive):
+>
+> ```
+> colab-fix
+> ```
+>
+> Luego: reinicia el servidor, en VS Code ejecuta **"Colab: Sign out"**, vuelve
+> a iniciar sesión (así se emite un token con el scope bueno) y prueba
+> **"Colab: Import notebook file from URL"** con el enlace del notebook.
+> Si el login dejara de funcionar: `colab-fix --revert`.
 
 ## 🧩 Extensiones en Android
 
