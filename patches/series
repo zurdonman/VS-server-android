@@ -38,3 +38,6 @@ mobile-tsgo.diff
 mobile-build-parallel.diff
 mobile-build-node.diff
 web-uri-resolver.diff
+mobile-ui-kind.diff
+mobile-external-open.diff
+mobile-gestures.diff

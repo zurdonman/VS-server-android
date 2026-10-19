@@ -111,6 +111,9 @@ y con ella puedo ver exactamente qué evento llega (o no llega) y por qué.
 | `mobile-keyboard-dispatch.diff` | `keyboard.dispatch` por defecto es `keyCode` en móviles → atajos y Tab vuelven a funcionar |
 | `mobile-touch-bar.diff` | **Barra táctil flotante** (Esc, Tab, Ctrl, Alt, Shift, flechas, Inicio/Fin, ⌫, Supr, Enter, ⌨) + modificadores pegajosos (Ctrl+C, Shift+flechas…) + el layout se re-ancla al `visualViewport` para que el teclado no tape el editor |
 | `mobile-viewport.diff` | `viewport-fit=cover` para móviles con muescas |
+| `mobile-gestures.diff` | **Zoom con dos dedos (pinch)** sobre el texto del editor (el navegador web no trae pincha y en Android el zoom de página está desactivado) + **scroll suave** (`editor.smoothScrolling`) para que el dedo no dé saltos |
+| `mobile-external-open.diff` | Si el navegador **bloquea** la apertura de una pestaña (los logins OAuth abren la URL después de varias esperas y el "gesto" ya ha caducado → *"no pasa nada"*), ahora se detecta y se ofrece un botón **Reintentar / Abrir en esta pestaña** |
+| `mobile-ui-kind.diff` | El extension host remoto se identifica como **escritorio** (`UIKind.Desktop`) en el móvil → las extensiones con login por callback local (**Google Colab**, GitHub…) usan el flujo de loopback en `127.0.0.1`, que **sí funciona en el móvil** (login real, sin pegar códigos) |
 
 Extras incluidos:
 
@@ -196,6 +199,36 @@ Aparece abajo del todo en pantallas táctiles (ajustable con el setting
 - **⌨** — enfoca el editor/terminal y abre el teclado virtual.
 - **▾** — oculta la barra (queda un botón flotante `⌨` para recuperarla).
 - La barra se coloca **encima** del teclado virtual cuando este se abre.
+
+## 🔍 Zoom con los dedos y scroll cómodo
+
+- **Pinch (dos dedos)** sobre el editor → cambia el **tamaño de la letra** (de 8
+  a 40 px, de 2 en 2). Se guarda en tu configuración, así que se mantiene al
+  recargar la página.
+- **Scroll suave**: el desplazamiento con el dedo es continuo, sin saltos
+  (equivale a `editor.smoothScrolling: true`, que se activa solo si no lo has
+  configurado tú).
+- El zoom de página del navegador está desactivado a propósito (`user-scalable=no`),
+  por eso el pinch lo controlamos nosotros y no el navegador.
+
+## 🔐 Login de Google (Colab) en el móvil
+
+El problema: en el móvil, el login de Google/Colab "no pasaba nada". La causa era
+doble:
+
+1. **El navegador bloqueaba la pestaña** que abre el login (OAuth tarda varias
+   esperas, el "gesto" del usuario caduca y Chrome bloquea el popup). Ahora se
+   detecta el bloqueo y sale un aviso con **Reintentar** o **Abrir en esta
+   pestaña** (toques reales → siempre funciona).
+2. **VS Code web se identificaba como navegador**, y la extensión de Colab en
+   ese caso usa un flujo de login que necesita un servidor de callbacks que no
+   existe en el móvil. Con `mobile-ui-kind.diff` el extension host se
+   identifica como escritorio, así que Colab usa el flujo **loopback**: levanta
+   un servidor en `127.0.0.1` **dentro del propio móvil**, Google vuelve a esa
+   dirección y **el login se completa solo** (sin copiar códigos a mano).
+
+Si prefieres pegar el código manualmente, también funciona: la extensión
+sigue mostrando esa opción.
 
 ## 🧩 Extensiones en Android
 

@@ -52,7 +52,8 @@ jq --slurp '.[0] * .[1]' product.original.json <(cat << JSON
     "github.copilot", "github.copilot-chat"
   ],
   "aiConfig": { "ariaKey": "code-server" },
-  "extensionPointExtensionKind": { "typescriptServerPlugins": ["workspace"] }
+  "extensionPointExtensionKind": { "typescriptServerPlugins": ["workspace"] },
+  "mobileUiKind": "desktop"
 }
 JSON
 ) > product.json
