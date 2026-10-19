@@ -72,6 +72,22 @@ bash scripts/build-vscode-web.sh
 echo "==> [7/7] Empaquetado del release"
 bash scripts/assemble-release.sh
 
+# Comprobacion: el bundle tiene que bringing los arreglos moviles. Si un
+# parche no se aplico o el build se rompio, el movil se quedaria con un
+# workbench sin los arreglos y no vale la pena publicar nada.
+BUNDLE="$(find release/lib/vscode/out/vs/workbench -maxdepth 1 -name 'workbench.web.main*.js' | head -n 1)"
+if [[ -z $BUNDLE ]]; then
+  echo "ERROR: no se encuentra el bundle del workbench" >&2
+  exit 1
+fi
+for marker in "Tamano de letra del editor" "El navegador ha bloqueado la apertura" "mobile-build-"; do
+  if ! grep -q -- "$marker" "$BUNDLE"; then
+    echo "ERROR: el bundle no contiene el marcador '$marker'" >&2
+    exit 1
+  fi
+done
+echo "    bundle verificado (incluye los arreglos moviles)"
+
 rm -f vs-server-android-prebuilt.tar.gz
 tar --exclude='release/node_modules' \
     --exclude='release/lib/vscode/node_modules' \
