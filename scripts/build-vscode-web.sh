@@ -61,7 +61,6 @@ jq --slurp '.[0] * .[1]' product.original.json <(cat << JSON
   ],
   "aiConfig": { "ariaKey": "code-server" },
   "extensionPointExtensionKind": { "typescriptServerPlugins": ["workspace"] },
-  "mobileUiKind": "desktop",
   "commit": "mobile-build-$BUILD_ID"
 }
 JSON

@@ -113,8 +113,7 @@ main() {
     },
     "extensionPointExtensionKind": {
       "typescriptServerPlugins": ["workspace"]
-    },
-    "mobileUiKind": "desktop"
+    }
   }
 EOF
   ) > product.json
