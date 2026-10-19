@@ -35,6 +35,18 @@ rm -rf release
 tar -xzf /tmp/vs-server-prebuilt.tar.gz
 rm -f /tmp/vs-server-prebuilt.tar.gz
 
+# Comprobacion rapida: el bundle debe traer los arreglos moviles. Si no, el
+# prebuilt descargado no es el que creemos y el movil no mostrara los cambios.
+BUNDLE="$(find release/lib/vscode/out/vs/workbench -maxdepth 1 -name 'workbench.web.main*.js' 2>/dev/null | head -n 1)"
+if [[ -n $BUNDLE ]]; then
+  if grep -q "Tamano de letra del editor" "$BUNDLE"; then
+    echo "   bundle correcto (incluye los arreglos moviles)"
+  else
+    echo "   AVISO: el bundle no parece el esperado (puede que el navegador"
+    echo "   tenga una version antigua cacheada: borra la cache del sitio)"
+  fi
+fi
+
 echo "==> [4/5] Compilando las piezas nativas en el movil (~10 min)"
 export PYTHON=python3
 export npm_config_runtime=node

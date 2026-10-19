@@ -134,6 +134,17 @@ if pgrep -f "release/out/node/entry.js" >/dev/null 2>&1; then
   echo "    y RECARGA la pagina del navegador (la URL lleva ahora el build nuevo)."
 fi
 
+# La URL del cliente incluye el id del build: si cambia, el navegador
+# descarga el bundle nuevo (el workbench se sirve con una cache de un ano).
+BUILD_COMMIT=""
+if [[ -f release/lib/vscode/product.json ]]; then
+  BUILD_COMMIT="$(sed -n 's/.*"commit"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' release/lib/vscode/product.json | head -n 1)"
+fi
+if [[ -n $BUILD_COMMIT ]]; then
+  echo "    URL del cliente: http://localhost:8080/stable-$BUILD_COMMIT/"
+  echo "    (abre esa URL: asi el navegador descarga el bundle nuevo)"
+fi
+
 # (Re)instalar los comandos cortos por si el proyecto se movio de carpeta.
 ROOT="$PWD"
 BIN_DIR="${PREFIX:-/data/data/com.termux/files/usr}/bin"
