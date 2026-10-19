@@ -78,11 +78,11 @@ git pull
 **registrando todo lo que pasa** en la carpeta **`Descargas/log/`** (se crea sola dentro de
 `Downloads`; la primera vez Termux pide permiso de almacenamiento — acepta):
 
-| Archivo | Qué guarda |
-|---|---|
-| `server.log` | Todo el servidor: errores, peticiones, trazas |
-| `client.log` | El **navegador**: errores de consola, excepciones, peticiones rechazadas y **trazas de teclado reales** (qué teclas/beforeinput manda el teclado virtual — justo lo que hace falta para depurar Enter/IME), cambios de foco y del teclado virtual |
-| `vscode-logs-<fecha>/` | Logs internos de VS Code (se copian al cerrar) |
+| Archivo                | Qué guarda                                                                                                                                                                                                                                        |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `server.log`           | Todo el servidor: errores, peticiones, trazas                                                                                                                                                                                                     |
+| `client.log`           | El **navegador**: errores de consola, excepciones, peticiones rechazadas y **trazas de teclado reales** (qué teclas/beforeinput manda el teclado virtual — justo lo que hace falta para depurar Enter/IME), cambios de foco y del teclado virtual |
+| `vscode-logs-<fecha>/` | Logs internos de VS Code (se copian al cerrar)                                                                                                                                                                                                    |
 
 Si algo te falla: **mándame la carpeta `Descargas/log/` entera** (o su contenido)
 y con ella puedo ver exactamente qué evento llega (o no llega) y por qué.
@@ -93,7 +93,7 @@ y con ella puedo ver exactamente qué evento llega (o no llega) y por qué.
 
 - **Enter no hace nada** (ni en el editor ni en la terminal). Los teclados
   virtuales (Gboard, etc.) no envían teclas normales: envían eventos de
-  *composición* (`keyCode 229`) y ediciones `beforeinput` que VS Code y xterm.js
+  _composición_ (`keyCode 229`) y ediciones `beforeinput` que VS Code y xterm.js
   se tragaban sin insertar el salto de línea.
 - **No hay teclas especiales**: Esc, Tab, Ctrl, Alt, flechas… no existen en el
   teclado táctil. Imposible cancelar un autocompletado, hacer Tab, Ctrl+C…
@@ -104,16 +104,16 @@ y con ella puedo ver exactamente qué evento llega (o no llega) y por qué.
 
 ## ✅ Lo que arregla este fork
 
-| Arreglo | Qué hace |
-|---|---|
-| `mobile-editor-input.diff` | Enter (y ⌫/Supr del teclado virtual) ahora insertan salto de línea y borrados en el editor, en ambos modos de entrada (textarea y EditContext), sin duplicar saltos con teclado físico |
-| `mobile-terminal-input.diff` | Enter envía `\r` a la terminal (xterm.js) aunque el teclado virtual mande `keyCode 229` |
-| `mobile-keyboard-dispatch.diff` | `keyboard.dispatch` por defecto es `keyCode` en móviles → atajos y Tab vuelven a funcionar |
-| `mobile-touch-bar.diff` | **Barra táctil flotante** (Esc, Tab, Ctrl, Alt, Shift, flechas, Inicio/Fin, ⌫, Supr, Enter, ⌨) + modificadores pegajosos (Ctrl+C, Shift+flechas…) + el layout se re-ancla al `visualViewport` para que el teclado no tape el editor |
-| `mobile-viewport.diff` | `viewport-fit=cover` para móviles con muescas |
-| `mobile-gestures.diff` | **Zoom con dos dedos (pinch)** sobre el texto del editor (el navegador web no trae pincha y en Android el zoom de página está desactivado) + **scroll suave** (`editor.smoothScrolling`) para que el dedo no dé saltos |
-| `mobile-external-open.diff` | Si el navegador **bloquea** la apertura de una pestaña (los logins OAuth abren la URL después de varias esperas y el "gesto" ya ha caducado → *"no pasa nada"*), ahora se detecta y se ofrece un botón **Reintentar / Abrir en esta pestaña** |
-| `mobile-ui-kind.diff` | El extension host remoto se identifica como **escritorio** (`UIKind.Desktop`) en el móvil → las extensiones con login por callback local (**Google Colab**, GitHub…) usan el flujo de loopback en `127.0.0.1`, que **sí funciona en el móvil** (login real, sin pegar códigos) |
+| Arreglo                         | Qué hace                                                                                                                                                                                                                                                                       |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `mobile-editor-input.diff`      | Enter (y ⌫/Supr del teclado virtual) ahora insertan salto de línea y borrados en el editor, en ambos modos de entrada (textarea y EditContext), sin duplicar saltos con teclado físico                                                                                         |
+| `mobile-terminal-input.diff`    | Enter envía `\r` a la terminal (xterm.js) aunque el teclado virtual mande `keyCode 229`                                                                                                                                                                                        |
+| `mobile-keyboard-dispatch.diff` | `keyboard.dispatch` por defecto es `keyCode` en móviles → atajos y Tab vuelven a funcionar                                                                                                                                                                                     |
+| `mobile-touch-bar.diff`         | **Barra táctil flotante** (Esc, Tab, Ctrl, Alt, Shift, flechas, Inicio/Fin, ⌫, Supr, Enter, ⌨) + modificadores pegajosos (Ctrl+C, Shift+flechas…) + el layout se re-ancla al `visualViewport` para que el teclado no tape el editor                                            |
+| `mobile-viewport.diff`          | `viewport-fit=cover` para móviles con muescas                                                                                                                                                                                                                                  |
+| `mobile-gestures.diff`          | **Zoom con dos dedos (pinch)** sobre el texto del editor (el navegador web no trae pincha y en Android el zoom de página está desactivado) + **scroll suave** (`editor.smoothScrolling`) para que el dedo no dé saltos                                                         |
+| `mobile-external-open.diff`     | Si el navegador **bloquea** la apertura de una pestaña (los logins OAuth abren la URL después de varias esperas y el "gesto" ya ha caducado → _"no pasa nada"_), ahora se detecta y se ofrece un botón **Reintentar / Abrir en esta pestaña**                                  |
+| `mobile-ui-kind.diff`           | El extension host remoto se identifica como **escritorio** (`UIKind.Desktop`) en el móvil → las extensiones con login por callback local (**Google Colab**, GitHub…) usan el flujo de loopback en `127.0.0.1`, que **sí funciona en el móvil** (login real, sin pegar códigos) |
 
 Extras incluidos:
 
@@ -179,12 +179,12 @@ espacio y bastante RAM. Necesita almacenamiento compartido (y evita
 
 ### Variables útiles
 
-| Variable | Efecto |
-|---|---|
-| `CS_AUTH=none` | Sin contraseña (solo red local de confianza) |
-| `CS_PORT=8081` | Cambiar puerto |
+| Variable                | Efecto                                             |
+| ----------------------- | -------------------------------------------------- |
+| `CS_AUTH=none`          | Sin contraseña (solo red local de confianza)       |
+| `CS_PORT=8081`          | Cambiar puerto                                     |
 | `CS_ANDROID_AS_LINUX=0` | Desactivar el "truco" de extensiones Android→Linux |
-| `CS_MAX_MEMORY=2048` | Límite de memoria de Node (MB) |
+| `CS_MAX_MEMORY=2048`    | Límite de memoria de Node (MB)                     |
 
 ## 🎛️ Cómo usar la barra táctil
 
@@ -193,7 +193,7 @@ Aparece abajo del todo en pantallas táctiles (ajustable con el setting
 
 - **Esc / Tab / flechas / Inicio / Fin / ⌫ / Supr / Enter** — se envían a donde
   tengas el foco (editor, terminal, listas…).
-- **Ctrl / Alt / Shift** — se *pegan* (se iluminan). Con uno activo, la próxima
+- **Ctrl / Alt / Shift** — se _pegan_ (se iluminan). Con uno activo, la próxima
   tecla del teclado virtual se envía con ese modificador: `Ctrl` + `c` = Ctrl+C
   en la terminal, `Shift` + `←` = selección, etc. Se desactivan solos tras un uso.
 - **⌨** — enfoca el editor/terminal y abre el teclado virtual.
@@ -232,8 +232,8 @@ sigue mostrando esa opción.
 
 ## 🧩 Extensiones en Android
 
-Android no es Linux del todo: la marketplace de VS Code solo permite *web
-extensions*. Con `misc/android-as-linux.js` (activado por defecto en
+Android no es Linux del todo: la marketplace de VS Code solo permite _web
+extensions_. Con `misc/android-as-linux.js` (activado por defecto en
 `termux-start.sh`) el servidor se identifica como Linux y puedes instalar
 extensiones de servidor. Si una extensión con componentes nativos falla,
 desactívalo con `CS_ANDROID_AS_LINUX=0` e instala el `.vsix` a mano.

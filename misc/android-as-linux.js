@@ -10,8 +10,8 @@
  * disable it.) Note Android and Linux are not 100% compatible: extensions with
  * native dependencies or direct OS access may misbehave.
  */
-Object.defineProperty(process, 'platform', {
-	get() {
-		return 'linux';
-	},
-});
+Object.defineProperty(process, "platform", {
+  get() {
+    return "linux"
+  },
+})
