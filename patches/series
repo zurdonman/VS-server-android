@@ -37,3 +37,4 @@ mobile-build.diff
 mobile-tsgo.diff
 mobile-build-parallel.diff
 mobile-build-node.diff
+web-uri-resolver.diff

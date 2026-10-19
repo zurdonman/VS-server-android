@@ -84,6 +84,18 @@ step "Dependencias de las extensiones (sin scripts)"
 ( cd "$RELEASE/lib/vscode/extensions" && npm install --omit=dev --no-audit --no-fund --ignore-scripts ) || true
 
 # 4) Ahora si, las nativas que hacen falta, una a una.
+#    Si ya estan compiladas de una instalacion anterior, no se repiten.
+if [[ -f "$RELEASE/.native-install-ok" ]] && [[ -d "$RELEASE/lib/vscode/node_modules/node-pty" ]]; then
+  echo ""
+  echo "Las piezas nativas ya estaban compiladas: se reutilizan."
+  touch "$RELEASE/.native-install-ok"
+  echo "=============================================================="
+  echo " INSTALACION CORRECTA (nativas reutilizadas)"
+  echo "   Arranca con:  vs-server"
+  echo "=============================================================="
+  exit 0
+fi
+
 NATIVES=(node-pty @vscode/spdlog @vscode/sqlite3 @parcel/watcher @vscode/ripgrep-universal)
 for dir in "$RELEASE/lib/vscode" "$RELEASE"; do
   [[ -d "$dir/node_modules" ]] || continue
