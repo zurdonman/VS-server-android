@@ -111,7 +111,8 @@ y con ella puedo ver exactamente qué evento llega (o no llega) y por qué.
 | `mobile-keyboard-dispatch.diff` | `keyboard.dispatch` por defecto es `keyCode` en móviles → atajos y Tab vuelven a funcionar                                                                                                                                                                                     |
 | `mobile-touch-bar.diff`         | **Barra táctil flotante** (Esc, Tab, Ctrl, Alt, Shift, flechas, Inicio/Fin, ⌫, Supr, Enter, ⌨) + modificadores pegajosos (Ctrl+C, Shift+flechas…) + el layout se re-ancla al `visualViewport` para que el teclado no tape el editor                                            |
 | `mobile-viewport.diff`          | `viewport-fit=cover` para móviles con muescas                                                                                                                                                                                                                                  |
-| `mobile-gestures.diff`          | **Zoom con dos dedos (pinch)** sobre el texto del editor (el navegador web no trae pincha y en Android el zoom de página está desactivado) + **scroll suave** (`editor.smoothScrolling`) para que el dedo no dé saltos                                                         |
+| `mobile-gestures.diff`          | **Zoom con dos dedos (pinch)** sobre el texto del editor (cambia el tamaño de la letra y se guarda) + **scroll suave** (`editor.smoothScrolling`) para que el dedo no dé saltos                                                                                                |
+| `mobile-zoom.diff`              | **Zoom nativo del navegador** habilitado (VS Code lo desactiva con `user-scalable=no`): con dos dedos puedes agrandar toda la interfaz                                                                                                                                         |
 | `mobile-external-open.diff`     | Si el navegador **bloquea** la apertura de una pestaña (los logins OAuth abren la URL después de varias esperas y el "gesto" ya ha caducado → _"no pasa nada"_), ahora se detecta y se ofrece un botón **Reintentar / Abrir en esta pestaña**                                  |
 | `mobile-ui-kind.diff`           | El extension host remoto se identifica como **escritorio** (`UIKind.Desktop`) en el móvil → las extensiones con login por callback local (**Google Colab**, GitHub…) usan el flujo de loopback en `127.0.0.1`, que **sí funciona en el móvil** (login real, sin pegar códigos) |
 
@@ -208,8 +209,12 @@ Aparece abajo del todo en pantallas táctiles (ajustable con el setting
 - **Scroll suave**: el desplazamiento con el dedo es continuo, sin saltos
   (equivale a `editor.smoothScrolling: true`, que se activa solo si no lo has
   configurado tú).
-- El zoom de página del navegador está desactivado a propósito (`user-scalable=no`),
-  por eso el pinch lo controlamos nosotros y no el navegador.
+- **Pinch en cualquier otro sitio** (barra lateral, paneles, menús) hace el
+  **zoom nativo del navegador**: ahora el zoom de página está habilitado
+  (`mobile-zoom.diff` quita el `user-scalable=no` de VS Code), así que puedes
+  agrandar la interfaz entera con los dedos.
+- En el editor el pinch lo controlamos nosotros (para cambiar el tamaño de la
+  letra de forma persistente), así que no se mezcla con el zoom del navegador.
 
 ## 🔐 Login de Google (Colab) en el móvil
 
