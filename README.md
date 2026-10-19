@@ -112,17 +112,16 @@ y con ella puedo ver exactamente qué evento llega (o no llega) y por qué.
 
 ## ✅ Lo que arregla este fork
 
-| Arreglo                         | Qué hace                                                                                                                                                                                                                                                                       |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `mobile-editor-input.diff`      | Enter (y ⌫/Supr del teclado virtual) ahora insertan salto de línea y borrados en el editor, en ambos modos de entrada (textarea y EditContext), sin duplicar saltos con teclado físico                                                                                         |
-| `mobile-terminal-input.diff`    | Enter envía `\r` a la terminal (xterm.js) aunque el teclado virtual mande `keyCode 229`                                                                                                                                                                                        |
-| `mobile-keyboard-dispatch.diff` | `keyboard.dispatch` por defecto es `keyCode` en móviles → atajos y Tab vuelven a funcionar                                                                                                                                                                                     |
-| `mobile-touch-bar.diff`         | **Barra táctil flotante** (Esc, Tab, Ctrl, Alt, Shift, flechas, Inicio/Fin, ⌫, Supr, Enter, ⌨) + modificadores pegajosos (Ctrl+C, Shift+flechas…) + el layout se re-ancla al `visualViewport` para que el teclado no tape el editor                                            |
-| `mobile-viewport.diff`          | `viewport-fit=cover` para móviles con muescas                                                                                                                                                                                                                                  |
-| `mobile-gestures.diff`          | **Zoom con dos dedos (pinch)** sobre el texto del editor (cambia el tamaño de la letra y se guarda) + **scroll suave** (`editor.smoothScrolling`) para que el dedo no dé saltos                                                                                                |
-| `mobile-zoom.diff`              | **Zoom nativo del navegador** habilitado (VS Code lo desactiva con `user-scalable=no`): con dos dedos puedes agrandar toda la interfaz                                                                                                                                         |
-| `mobile-external-open.diff`     | Si el navegador **bloquea** la apertura de una pestaña (los logins OAuth abren la URL después de varias esperas y el "gesto" ya ha caducado → _"no pasa nada"_), ahora se detecta y se ofrece un botón **Reintentar / Abrir en esta pestaña**                                  |
-| `mobile-ui-kind.diff`           | El extension host remoto se identifica como **escritorio** (`UIKind.Desktop`) en el móvil → las extensiones con login por callback local (**Google Colab**, GitHub…) usan el flujo de loopback en `127.0.0.1`, que **sí funciona en el móvil** (login real, sin pegar códigos) |
+| Arreglo                         | Qué hace                                                                                                                                                                                                                                      |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mobile-editor-input.diff`      | Enter (y ⌫/Supr del teclado virtual) ahora insertan salto de línea y borrados en el editor, en ambos modos de entrada (textarea y EditContext), sin duplicar saltos con teclado físico                                                        |
+| `mobile-terminal-input.diff`    | Enter envía `\r` a la terminal (xterm.js) aunque el teclado virtual mande `keyCode 229`                                                                                                                                                       |
+| `mobile-keyboard-dispatch.diff` | `keyboard.dispatch` por defecto es `keyCode` en móviles → atajos y Tab vuelven a funcionar                                                                                                                                                    |
+| `mobile-touch-bar.diff`         | **Barra táctil flotante** (Esc, Tab, Ctrl, Alt, Shift, flechas, Inicio/Fin, ⌫, Supr, Enter, ⌨) + modificadores pegajosos (Ctrl+C, Shift+flechas…) + el layout se re-ancla al `visualViewport` para que el teclado no tape el editor           |
+| `mobile-viewport.diff`          | `viewport-fit=cover` para móviles con muescas                                                                                                                                                                                                 |
+| `mobile-gestures.diff`          | **Zoom con dos dedos (pinch)** sobre el texto del editor (cambia el tamaño de la letra y se guarda) + **scroll suave** (`editor.smoothScrolling`) para que el dedo no dé saltos                                                               |
+| `mobile-zoom.diff`              | **Zoom nativo del navegador** habilitado (VS Code lo desactiva con `user-scalable=no`): con dos dedos puedes agrandar toda la interfaz                                                                                                        |
+| `mobile-external-open.diff`     | Si el navegador **bloquea** la apertura de una pestaña (los logins OAuth abren la URL después de varias esperas y el "gesto" ya ha caducado → _"no pasa nada"_), ahora se detecta y se ofrece un botón **Reintentar / Abrir en esta pestaña** |
 
 Extras incluidos:
 
@@ -226,22 +225,29 @@ Aparece abajo del todo en pantallas táctiles (ajustable con el setting
 
 ## 🔐 Login de Google (Colab) en el móvil
 
-El problema: en el móvil, el login de Google/Colab "no pasaba nada". La causa era
-doble:
+El problema: en el móvil, el login de Google/Colab "no pasaba nada". La causa
+era que **el navegador bloqueaba la pestaña** del login: los flujos OAuth abren
+la URL después de varias esperas, el "gesto" del usuario ya ha caducado y
+Chrome bloquea el popup (y `window.open()` no puede avisar de eso).
 
-1. **El navegador bloqueaba la pestaña** que abre el login (OAuth tarda varias
-   esperas, el "gesto" del usuario caduca y Chrome bloquea el popup). Ahora se
-   detecta el bloqueo y sale un aviso con **Reintentar** o **Abrir en esta
-   pestaña** (toques reales → siempre funciona).
-2. **VS Code web se identificaba como navegador**, y la extensión de Colab en
-   ese caso usa un flujo de login que necesita un servidor de callbacks que no
-   existe en el móvil. Con `mobile-ui-kind.diff` el extension host se
-   identifica como escritorio, así que Colab usa el flujo **loopback**: levanta
-   un servidor en `127.0.0.1` **dentro del propio móvil**, Google vuelve a esa
-   dirección y **el login se completa solo** (sin copiar códigos a mano).
+Ahora (`mobile-external-open.diff`) se **detecta el bloqueo** y sale un aviso
+con dos botones:
 
-Si prefieres pegar el código manualmente, también funciona: la extensión
-sigue mostrando esa opción.
+- **Reintentar** — vuelve a abrir la pestaña con un toque real (funciona).
+- **Abrir en esta pestaña** — navega a la URL en la misma ventana.
+
+El login de Colab en web te pide además **pegar el código de autorización**
+(copiándolo de la URL a la que te lleva Google). Esa opción también funciona
+ahora: la URL a la que vuelve Google se resuelve por la ruta de callback
+(`web-uri-resolver.diff`), que antes estaba rota.
+
+> **Importar un notebook de Drive concreto** ("Colab: Import notebook file
+> from URL") puede devolver `File not found` aunque el login esté bien: la
+> extensión pide a Google con el scope `drive.file`, que **solo da acceso a
+> ficheros que creó la propia app de Colab**. Para un notebook que ya existía
+> en tu Drive, Google responde 404. No es un problema de este fork: prueba con
+> un notebook nuevo, o abre Colab en el navegador y conéctalo al servidor de
+> Colab de VS Code.
 
 ## 🧩 Extensiones en Android
 
