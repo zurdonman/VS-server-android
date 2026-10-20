@@ -259,6 +259,34 @@ ahora: la URL a la que vuelve Google se resuelve por la ruta de callback
 > **"Colab: Import notebook file from URL"** con el enlace del notebook.
 > Si el login dejara de funcionar: `colab-fix --revert`.
 
+## 🌐 Navegadores: Chrome, Opera, Firefox
+
+El login del chat/agente (Copilot, Claude Code…) **se hace en el navegador** y
+cada navegador es independiente: la sesión de GitHub de Chrome no sirve en
+Opera. Hay que iniciar sesión **con GitHub** en cada navegador (una cuenta de
+Google no vale para el agente).
+
+Además, el login abre GitHub en una **pestaña nueva**, y hay navegadores que
+la bloquean:
+
+- **Chrome / Edge**: no bloquea popups → funciona ✓.
+- **Opera / Firefox / DuckDuckGo**: sí los bloquean → el login se queda
+  esperando sin abrir nada. Con este fork, cuando el navegador bloquea la
+  apertura sale un aviso con **Reintentar** y **Abrir en esta pestaña**
+  (toques reales → siempre funciona).
+
+Si usas Opera, además:
+
+1. Ajustes → **Privacidad → Bloquear popups** → desactívalo (o usa el aviso
+   "Abrir en esta pestaña" del propio VS Code).
+2. Ajustes → **Privacidad → Cookies de terceros** → permitidas (el login de
+   GitHub es un redireccionamiento con cookies de terceros).
+3. Abre siempre la URL con el **id del build** que te imprime `vs-update`
+   (cada navegador tiene su propia caché).
+
+Una vez iniciada sesión, la sesión queda en el **servidor**: a partir de ahí
+funciona en todos los navegadores contra el mismo code-server.
+
 ## 🧩 Extensiones en Android
 
 Android no es Linux del todo: la marketplace de VS Code solo permite _web
