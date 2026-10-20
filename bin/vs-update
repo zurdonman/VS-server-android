@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# VS Code Server Android — comando corto: vs-update
+# Actualiza el proyecto desde GitHub (git pull) y recompila solo si hace falta.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+exec bash "$ROOT/scripts/termux-update.sh" "$@"

@@ -1,0 +1,33 @@
+Index: code-server/lib/vscode/build/gulpfile.vscode.ts
+===================================================================
+--- code-server.orig/lib/vscode/build/gulpfile.vscode.ts
++++ code-server/lib/vscode/build/gulpfile.vscode.ts
+@@ -24,7 +24,7 @@ import { getProductionDependencies } from './lib/dependencies.ts';
+ import { config } from './lib/electron.ts';
+ import { createAsar } from './lib/asar.ts';
+ import minimist from 'minimist';
+-import { compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileAllExtensionsBuildTask, compileExtensionMediaBuildTask, cleanExtensionsBuildTask, compileCopilotExtensionBuildTask } from './gulpfile.extensions.ts';
++import { compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileAllExtensionsBuildTask, compileExtensionMediaBuildTask, cleanExtensionsBuildTask, compileCopilotExtensionBuildTask, compileCopilotExtensionFullBuildTask } from './gulpfile.extensions.ts';
+ import { checkApiProposalNamesTask, copyCodiconsTask } from './lib/compilation.ts';
+ import { ensureCopilotPlatformPackage, getCopilotExcludeFilter, getCopilotRuntimePrebuildFiles, getCopilotRuntimeVersion, getCopilotTgrepExcludeFilter, getMxcExcludeFilter, getRipgrepExcludeFilter, prepareBuiltInCopilotRipgrepShim } from './lib/copilot.ts';
+ import { ensureOSProxyResolverPlatformPackage, getOSProxyResolverExcludeFilter, getOSProxyResolverPlatformFiles } from './lib/osProxyResolver.ts';
+@@ -82,6 +82,19 @@ task.task(task.define('core-ci', task.series(
+ 	)
+ )));
+ 
++// VS Code Server Android: web-only variant of core-ci. Builds just the
++// server-web bundle (plus codicons and the extension build outputs the reh-web
++// packaging step needs) so it can run on memory-constrained devices where the
++// desktop and node server bundles would OOM. Pair with
++// `vscode-reh-web-<platform>-min-ci` to package.
++task.task(task.define('core-ci-web', task.series(
++	copyCodiconsTask,
++	compileNonNativeExtensionsBuildTask,
++	compileExtensionMediaBuildTask,
++	compileCopilotExtensionFullBuildTask,
++	task.define('esbuild-vscode-reh-web-min-web', () => runEsbuildBundle('out-vscode-reh-web-min', true, true, 'server-web', `${sourceMappingURLBase}/core`)),
++)));
++
+ /**
+  * Compute checksums for some files.
+  *

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# VS Code Server Android — comando corto: colab-fix
+# Parchea la extension de Colab para que pueda leer tus notebooks de Drive.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+exec bash "$ROOT/scripts/termux-colab-fix.sh" "$@"

@@ -1,0 +1,459 @@
+Add a mobile keyboard toolbar (Esc/Tab/Ctrl/Alt/Shift/arrows/Enter/...) and a
+virtual-keyboard-aware layout for touch devices.
+
+The toolbar provides keys soft keyboards do not expose, remixes sticky
+modifiers into soft-keyboard keydowns (Ctrl+C and friends) and re-anchors the
+workbench to the visual viewport so the soft keyboard does not cover the
+editor. Controlled by the mobileKeyboard.enabled setting (auto/on/off).
+
+Index: code-server/lib/vscode/src/vs/workbench/contrib/mobileKeyboard/browser/mobileKeyboard.contribution.ts
+====================================================================
+--- /dev/null
++++ code-server/lib/vscode/src/vs/workbench/contrib/mobileKeyboard/browser/mobileKeyboard.contribution.ts
+@@ -0,0 +1,432 @@
++/*---------------------------------------------------------------------------------------------
++ *  Copyright (c) Microsoft Corporation. All rights reserved.
++ *  Licensed under the MIT License. See License.txt in the project root for license information.
++ *--------------------------------------------------------------------------------------------*/
++
++import { addDisposableListener } from '../../../../base/browser/dom.js';
++import { RunOnceScheduler } from '../../../../base/common/async.js';
++import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
++import { localize } from '../../../../nls.js';
++import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
++import { ConfigurationScope, Extensions as ConfigExtensions, IConfigurationNode, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
++import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
++import { Registry } from '../../../../platform/registry/common/platform.js';
++import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
++
++//#region Configuration
++
++const configurationRegistry = Registry.as<IConfigurationRegistry>(ConfigExtensions.Configuration);
++const keyboardConfiguration: IConfigurationNode = {
++	'id': 'mobileKeyboard',
++	'order': 20,
++	'type': 'object',
++	'title': localize('mobileKeyboardConfigurationTitle', "Mobile Keyboard Toolbar"),
++	'properties': {
++		'mobileKeyboard.enabled': {
++			scope: ConfigurationScope.APPLICATION,
++			type: 'string',
++			enum: ['auto', 'on', 'off'],
++			default: 'auto',
++			markdownDescription: localize('mobileKeyboard.enabled', "Controls when the mobile keyboard toolbar is shown. `auto` (default) shows it on touch devices with a narrow viewport, `on` always shows it, `off` never shows it.")
++		}
++	}
++};
++configurationRegistry.registerConfiguration(keyboardConfiguration);
++
++//#endregion
++
++interface IKeyButton {
++	readonly label: string;
++	readonly ariaLabel: string;
++	readonly key?: string;
++	readonly code?: string;
++	readonly keyCode?: number;
++	readonly modifier?: 'ctrl' | 'alt' | 'shift';
++	readonly action?: 'toggleKeyboard' | 'hideToolbar';
++}
++
++const KEY_BUTTONS: IKeyButton[] = [
++	{ label: 'Esc', ariaLabel: 'Escape', key: 'Escape', code: 'Escape', keyCode: 27 },
++	{ label: 'Tab', ariaLabel: 'Tab', key: 'Tab', code: 'Tab', keyCode: 9 },
++	{ label: 'Ctrl', ariaLabel: 'Control modifier', modifier: 'ctrl' },
++	{ label: 'Alt', ariaLabel: 'Alt modifier', modifier: 'alt' },
++	{ label: 'Shift', ariaLabel: 'Shift modifier', modifier: 'shift' },
++	{ label: '←', ariaLabel: 'Arrow left', key: 'ArrowLeft', code: 'ArrowLeft', keyCode: 37 },
++	{ label: '↑', ariaLabel: 'Arrow up', key: 'ArrowUp', code: 'ArrowUp', keyCode: 38 },
++	{ label: '↓', ariaLabel: 'Arrow down', key: 'ArrowDown', code: 'ArrowDown', keyCode: 40 },
++	{ label: '→', ariaLabel: 'Arrow right', key: 'ArrowRight', code: 'ArrowRight', keyCode: 39 },
++	{ label: 'Home', ariaLabel: 'Home', key: 'Home', code: 'Home', keyCode: 36 },
++	{ label: 'End', ariaLabel: 'End', key: 'End', code: 'End', keyCode: 35 },
++	{ label: '⌫', ariaLabel: 'Backspace', key: 'Backspace', code: 'Backspace', keyCode: 8 },
++	{ label: 'Del', ariaLabel: 'Delete', key: 'Delete', code: 'Delete', keyCode: 46 },
++	{ label: 'Enter', ariaLabel: 'Enter', key: 'Enter', code: 'Enter', keyCode: 13 },
++	{ label: '⌨', ariaLabel: 'Show soft keyboard', action: 'toggleKeyboard' },
++	{ label: '▾', ariaLabel: 'Hide toolbar', action: 'hideToolbar' },
++];
++
++/**
++ * A workbench contribution for touch devices (phones/tablets) that adds:
++ *
++ * 1. A sticky on-screen key bar (Esc/Tab/Ctrl/Alt/Shift/arrows/Enter/...) so
++ *    keys that soft keyboards do not expose become reachable.
++ * 2. A key event "remixer": while a modifier is sticky, the next soft keyboard
++ *    key is re-dispatched with that modifier applied (Ctrl+C and friends).
++ * 3. A visual viewport fix so the virtual keyboard shrinks the workbench
++ *    instead of covering the editor.
++ */
++export class MobileKeyboardContribution extends Disposable implements IWorkbenchContribution {
++
++	static readonly ID = 'workbench.contrib.mobileKeyboard';
++
++	private static readonly TOOLBAR_HEIGHT = 42;
++	private static readonly HIDDEN_STATE_KEY = 'mobileKeyboard.toolbarHidden';
++
++	private _enabled: boolean = false;
++	private _toolbarHidden: boolean = false;
++	private _lastLayoutKey: string = '';
++
++	private _root!: HTMLElement;
++	private _pill!: HTMLElement;
++	private _modifierButtons = new Map<'ctrl' | 'alt' | 'shift', HTMLElement>();
++	private _modifiers = { ctrl: false, alt: false, shift: false };
++
++	/** Guards the capture-phase remix listener against its own synthetic events. */
++	private static readonly _syntheticEvents = new WeakSet<object>();
++
++	constructor(
++		@IConfigurationService private readonly _configurationService: IConfigurationService,
++		@ILayoutService private readonly _layoutService: ILayoutService,
++	) {
++		super();
++
++		this._toolbarHidden = localStorage.getItem(MobileKeyboardContribution.HIDDEN_STATE_KEY) === '1';
++
++		this._buildUi();
++		this._updateEnabled();
++
++		this._register(this._configurationService.onDidChangeConfiguration(e => {
++			if (e.affectsConfiguration('mobileKeyboard.enabled')) {
++				this._updateEnabled();
++			}
++		}));
++
++		// While a sticky modifier is active, re-dispatch soft keyboard keys with the
++		// modifier applied. Soft keyboards cannot send Ctrl/Alt themselves, so this
++		// is what makes Ctrl+C, Ctrl+S, Shift+arrows, ... work from Gboard and co.
++		this._register(addDisposableListener(window, 'keydown', (e: KeyboardEvent) => {
++			if (!this._enabled || MobileKeyboardContribution._syntheticEvents.has(e)) {
++				return;
++			}
++			if (!this._modifiers.ctrl && !this._modifiers.alt && !this._modifiers.shift) {
++				return;
++			}
++			if (e.key === 'Control' || e.key === 'Alt' || e.key === 'Shift' || e.key === 'Meta') {
++				return;
++			}
++			// Already carrying exactly the sticky modifiers (hardware keyboard): let it be.
++			if (e.ctrlKey === this._modifiers.ctrl && e.altKey === this._modifiers.alt && e.shiftKey === this._modifiers.shift) {
++				this._clearModifiers();
++				return;
++			}
++			const target = e.target instanceof HTMLElement ? e.target : this._resolveTarget();
++			if (!target) {
++				return;
++			}
++			e.preventDefault();
++			e.stopImmediatePropagation();
++			this._dispatchKey({
++				key: e.key,
++				code: e.code,
++				keyCode: (e.keyCode && e.keyCode !== 229) ? e.keyCode : MobileKeyboardContribution._keyCodeFor(e.key),
++			}, target);
++			this._clearModifiers();
++		}, true));
++
++		// Recompute layout when the soft keyboard opens/closes or the URL bar moves.
++		const scheduleLayout = this._register(new RunOnceScheduler(() => this._applyLayout(), 50));
++		this._register(addDisposableListener(window, 'resize', () => scheduleLayout.schedule()));
++		if (window.visualViewport) {
++			this._register(addDisposableListener(window.visualViewport, 'resize', () => scheduleLayout.schedule()));
++			this._register(addDisposableListener(window.visualViewport, 'scroll', () => scheduleLayout.schedule()));
++		}
++		this._register(toDisposable(() => {
++			this._layoutService.mainContainer.style.position = '';
++			this._layoutService.mainContainer.style.top = '';
++			this._layoutService.mainContainer.style.left = '';
++			this._layoutService.mainContainer.style.width = '';
++			this._layoutService.mainContainer.style.height = '';
++		}));
++	}
++
++	//#region UI
++
++	private _buildUi(): void {
++		this._root = document.createElement('div');
++		this._root.className = 'mobile-keyboard-toolbar';
++		this._root.setAttribute('role', 'toolbar');
++		this._root.setAttribute('aria-label', localize('mobileKeyboard.toolbar', "Mobile keyboard toolbar"));
++
++		for (const button of KEY_BUTTONS) {
++			const el = document.createElement('button');
++			el.className = 'mobile-keyboard-button' + (button.modifier ? ' modifier' : '');
++			el.textContent = button.label;
++			el.setAttribute('aria-label', button.ariaLabel);
++			el.tabIndex = -1; // never steal Tab focus from the workbench
++			if (button.modifier) {
++				this._modifierButtons.set(button.modifier, el);
++			}
++			// Keep focus in the editor/terminal when tapping toolbar buttons.
++			this._register(addDisposableListener(el, 'mousedown', (e: MouseEvent) => e.preventDefault()));
++			this._register(addDisposableListener(el, 'click', () => this._onButtonClick(button)));
++			this._root.appendChild(el);
++		}
++
++		const style = document.createElement('style');
++		style.textContent = `
++			.mobile-keyboard-toolbar {
++				position: fixed;
++				left: 0;
++				right: 0;
++				bottom: 0;
++				z-index: 9999;
++				display: flex;
++				flex-wrap: nowrap;
++				gap: 6px;
++				padding: 5px 6px calc(5px + env(safe-area-inset-bottom, 0px)) 6px;
++				overflow-x: auto;
++				overflow-y: hidden;
++				-webkit-overflow-scrolling: touch;
++				touch-action: manipulation;
++				-webkit-user-select: none;
++				user-select: none;
++				-webkit-tap-highlight-color: transparent;
++				background: var(--vscode-editorWidget-background, rgba(30, 30, 30, 0.95));
++				border-top: 1px solid var(--vscode-editorWidget-border, rgba(60, 60, 60, 1));
++				color: var(--vscode-editor-foreground, #ddd);
++				font-family: var(--vscode-font-family, sans-serif);
++				font-size: 13px;
++			}
++			.mobile-keyboard-button {
++				flex: 0 0 auto;
++				min-width: 38px;
++				height: 31px;
++				padding: 0 10px;
++				border: 1px solid var(--vscode-editorWidget-border, rgba(80, 80, 80, 1));
++				border-radius: 6px;
++				background: var(--vscode-button-secondaryBackground, rgba(70, 70, 70, 0.9));
++				color: var(--vscode-button-secondaryForeground, #eee);
++				font-size: 13px;
++				line-height: 29px;
++				text-align: center;
++				cursor: pointer;
++			}
++			.mobile-keyboard-button:active {
++				background: var(--vscode-button-background, rgba(10, 132, 255, 0.9));
++			}
++			.mobile-keyboard-button.modifier.active {
++				background: var(--vscode-button-background, rgba(10, 132, 255, 0.95));
++				color: var(--vscode-button-foreground, #fff);
++				border-color: var(--vscode-focusBorder, rgba(10, 132, 255, 1));
++			}
++			.mobile-keyboard-pill {
++				position: fixed;
++				right: 10px;
++				z-index: 9999;
++				width: 42px;
++				height: 34px;
++				border-radius: 17px;
++				border: 1px solid var(--vscode-editorWidget-border, rgba(80, 80, 80, 1));
++				background: var(--vscode-editorWidget-background, rgba(30, 30, 30, 0.95));
++				color: var(--vscode-editor-foreground, #ddd);
++				font-size: 16px;
++				line-height: 32px;
++				text-align: center;
++				touch-action: manipulation;
++				-webkit-tap-highlight-color: transparent;
++				cursor: pointer;
++				z-index: 9999;
++			}
++		`;
++		this._root.appendChild(style);
++
++		this._pill = document.createElement('button');
++		this._pill.className = 'mobile-keyboard-pill';
++		this._pill.textContent = '⌨';
++		this._pill.setAttribute('aria-label', localize('mobileKeyboard.show', "Show mobile keyboard toolbar"));
++		this._pill.tabIndex = -1;
++		this._pill.style.display = 'none';
++		this._register(addDisposableListener(this._pill, 'mousedown', (e: MouseEvent) => e.preventDefault()));
++		this._register(addDisposableListener(this._pill, 'click', () => {
++			this._toolbarHidden = false;
++			localStorage.setItem(MobileKeyboardContribution.HIDDEN_STATE_KEY, '0');
++			this._updateEnabled();
++		}));
++
++		document.body.appendChild(this._root);
++		document.body.appendChild(this._pill);
++		this._register(toDisposable(() => {
++			this._root.remove();
++			this._pill.remove();
++		}));
++	}
++
++	private _onButtonClick(button: IKeyButton): void {
++		if (button.modifier) {
++			this._modifiers[button.modifier] = !this._modifiers[button.modifier];
++			this._modifierButtons.get(button.modifier)?.classList.toggle('active', this._modifiers[button.modifier]);
++			return;
++		}
++		if (button.action === 'hideToolbar') {
++			this._toolbarHidden = true;
++			localStorage.setItem(MobileKeyboardContribution.HIDDEN_STATE_KEY, '1');
++			this._updateEnabled();
++			return;
++		}
++		if (button.action === 'toggleKeyboard') {
++			const target = this._resolveTarget();
++			target?.focus();
++			return;
++		}
++		const target = this._resolveTarget();
++		if (!target || !button.key) {
++			return;
++		}
++		this._dispatchKey({ key: button.key, code: button.code, keyCode: button.keyCode }, target);
++		this._clearModifiers();
++	}
++
++	private _clearModifiers(): void {
++		this._modifiers = { ctrl: false, alt: false, shift: false };
++		for (const [name, el] of this._modifierButtons) {
++			el.classList.toggle('active', this._modifiers[name]);
++		}
++	}
++
++	//#endregion
++
++	//#region Key dispatch
++
++	private _resolveTarget(): HTMLElement | null {
++		const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
++		if (active && active !== document.body && active !== this._root && active !== this._pill
++			&& !this._root.contains(active) && !this._pill.contains(active)) {
++			return active;
++		}
++		// Focus was lost to the toolbar: fall back to the known hidden inputs.
++		return document.querySelector<HTMLElement>('.xterm .xterm-helper-textarea')
++			?? document.querySelector<HTMLElement>('.monaco-editor textarea.inputarea')
++			?? document.querySelector<HTMLElement>('.monaco-editor .native-edit-context')
++			?? active;
++	}
++
++	private _dispatchKey(key: { key?: string; code?: string; keyCode?: number }, target: HTMLElement): void {
++		const keyCode = key.keyCode ?? MobileKeyboardContribution._keyCodeFor(key.key);
++		const init: KeyboardEventInit = {
++			key: key.key ?? '',
++			code: key.code ?? '',
++			bubbles: true,
++			cancelable: true,
++			composed: true,
++			ctrlKey: this._modifiers.ctrl,
++			altKey: this._modifiers.alt,
++			shiftKey: this._modifiers.shift,
++		};
++		const event = new KeyboardEvent('keydown', init);
++		// The legacy fields are read-only but xterm.js and `keyboard.dispatch`:
++		// `keyCode` still consume them, so define them explicitly.
++		Object.defineProperty(event, 'keyCode', { get: () => keyCode });
++		Object.defineProperty(event, 'which', { get: () => keyCode });
++		MobileKeyboardContribution._syntheticEvents.add(event);
++		const handled = !target.dispatchEvent(event);
++
++		// Enter is pure typing in the editor (no keybinding owns it): synthesize the
++		// IME line-break `beforeinput` that our editor/terminal input patches listen
++		// for. Widgets that do own Enter (suggest, quick input, xterm, ...) call
++		// preventDefault above and we stay out of the way.
++		if (key.key === 'Enter' && !handled) {
++			const beforeInput = new InputEvent('beforeinput', {
++				inputType: 'insertLineBreak',
++				bubbles: true,
++				cancelable: true,
++				composed: true,
++			});
++			MobileKeyboardContribution._syntheticEvents.add(beforeInput);
++			target.dispatchEvent(beforeInput);
++		}
++	}
++
++	private static _keyCodeFor(key: string | undefined): number {
++		switch (key) {
++			case 'Enter': return 13;
++			case 'Escape': return 27;
++			case 'Tab': return 9;
++			case 'Backspace': return 8;
++			case 'Delete': return 46;
++			case 'ArrowLeft': return 37;
++			case 'ArrowUp': return 38;
++			case 'ArrowRight': return 39;
++			case 'ArrowDown': return 40;
++			case 'Home': return 36;
++			case 'End': return 35;
++			default: return 0;
++		}
++	}
++
++	//#endregion
++
++	//#region Layout
++
++	private _updateEnabled(): void {
++		const config = this._configurationService.getValue<string>('mobileKeyboard.enabled');
++		const mobileLike = (navigator.maxTouchPoints ?? 0) > 0 && window.innerWidth <= 1024;
++		this._enabled = config === 'on' || (config !== 'off' && mobileLike);
++		this._root.style.display = this._enabled && !this._toolbarHidden ? 'flex' : 'none';
++		this._pill.style.display = this._enabled && this._toolbarHidden ? 'block' : 'none';
++		this._applyLayout();
++	}
++
++	/**
++	 * Keeps the virtual keyboard from covering the workbench: when the soft
++	 * keyboard opens, `window.innerHeight` does not change on Android (only
++	 * `visualViewport` does), so the workbench is re-anchored to the visible
++	 * viewport and a resize is emitted for the layout service.
++	 */
++	private _applyLayout(): void {
++		const barVisible = this._enabled && !this._toolbarHidden;
++		const barHeight = barVisible ? MobileKeyboardContribution.TOOLBAR_HEIGHT : 0;
++		const viewport = window.visualViewport;
++		const layout = this._layoutService.mainContainer;
++
++		const visibleHeight = viewport ? viewport.height : window.innerHeight;
++		const keyboardInset = Math.max(0, Math.round(window.innerHeight - visibleHeight - (viewport?.offsetTop ?? 0)));
++
++		// Avoid emitting resize storms (the layout event below re-triggers this).
++		const layoutKey = `${this._enabled}|${barVisible}|${keyboardInset}|${Math.round(visibleHeight)}|${Math.round(viewport?.width ?? window.innerWidth)}`;
++		if (layoutKey === this._lastLayoutKey) {
++			return;
++		}
++		this._lastLayoutKey = layoutKey;
++
++		this._root.style.bottom = `${keyboardInset}px`;
++		this._pill.style.bottom = `${keyboardInset + 10}px`;
++
++		if (this._enabled) {
++			layout.style.position = 'fixed';
++			layout.style.top = `${Math.round(viewport?.offsetTop ?? 0)}px`;
++			layout.style.left = `${Math.round(viewport?.offsetLeft ?? 0)}px`;
++			layout.style.width = `${Math.round(viewport?.width ?? window.innerWidth)}px`;
++			layout.style.height = `${Math.max(0, Math.round(visibleHeight) - barHeight)}px`;
++		} else {
++			layout.style.position = '';
++			layout.style.top = '';
++			layout.style.left = '';
++			layout.style.width = '';
++			layout.style.height = '';
++		}
++		window.dispatchEvent(new Event('resize'));
++	}
++
++	//#endregion
++}
++
++registerWorkbenchContribution2(MobileKeyboardContribution.ID, MobileKeyboardContribution, WorkbenchPhase.AfterRestored);
+
+Index: code-server/lib/vscode/src/vs/workbench/workbench.common.main.ts
+====================================================================
+--- code-server.orig/lib/vscode/src/vs/workbench/workbench.common.main.ts
++++ code-server/lib/vscode/src/vs/workbench/workbench.common.main.ts
+@@ -481,4 +481,7 @@ import './contrib/editTelemetry/browser/editTelemetry.contribution.js';
+ // Opener
+ import './contrib/opener/browser/opener.contribution.js';
+ 
++// Mobile Keyboard Toolbar
++import './contrib/mobileKeyboard/browser/mobileKeyboard.contribution.js';
++
+ //#endregion
+

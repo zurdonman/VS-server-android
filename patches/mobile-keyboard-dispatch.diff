@@ -1,0 +1,34 @@
+Default keyboard.dispatch to keyCode on mobile virtual keyboards.
+
+Android soft keyboards routinely leave KeyboardEvent.code empty or wrong,
+which breaks keybindings and the tab key when dispatching by code.
+
+Index: code-server/lib/vscode/src/vs/platform/keyboardLayout/common/keyboardConfig.ts
+====================================================================
+--- code-server.orig/lib/vscode/src/vs/platform/keyboardLayout/common/keyboardConfig.ts
++++ code-server/lib/vscode/src/vs/platform/keyboardLayout/common/keyboardConfig.ts
+@@ -26,6 +26,14 @@ export function readKeyboardConfig(configurationService: IConfigurationService):
+ 	return { dispatch, mapAltGrToCtrlAlt };
+ }
+ 
++// Mobile browsers with virtual keyboards (Android soft keyboards in particular)
++// routinely leave `KeyboardEvent.code` empty or wrong, which breaks keybindings
++// and the tab key when dispatching by `code`. Default to `keyCode` dispatch on
++// those platforms; users can still opt back in with `"keyboard.dispatch": "code"`.
++const isMobileVirtualKeyboard = typeof navigator !== 'undefined'
++	&& (navigator.maxTouchPoints ?? 0) > 0
++	&& /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent || '');
++
+ const configurationRegistry = Registry.as<IConfigurationRegistry>(ConfigExtensions.Configuration);
+ const keyboardConfiguration: IConfigurationNode = {
+ 	'id': 'keyboard',
+@@ -37,7 +45,7 @@ const keyboardConfiguration: IConfigurationNode = {
+ 			scope: ConfigurationScope.APPLICATION,
+ 			type: 'string',
+ 			enum: ['code', 'keyCode'],
+-			default: 'code',
++			default: isMobileVirtualKeyboard ? 'keyCode' : 'code',
+ 			markdownDescription: nls.localize('dispatch', "Controls the dispatching logic for key presses to use either `code` (recommended) or `keyCode`."),
+ 			included: OS === OperatingSystem.Macintosh || OS === OperatingSystem.Linux
+ 		},
+

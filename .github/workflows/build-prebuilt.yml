@@ -1,0 +1,130 @@
+name: Build prebuilt (Android/Termux)
+
+# Compila aqui TODO el motor de VS Code (la parte pesada) y publica el
+# resultado como asset de un release, para que en el movil solo haya que
+# descargarlo. Es el mismo modelo que usa el code-server oficial.
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publicar el release con el asset"
+        type: boolean
+        default: true
+  push:
+    branches:
+      - arena/55960f6b-vs-server-android
+    paths:
+      # Solo lo que cambia el bundle publicado. El resto de scripts (los del
+      # movil) no afecta al prebuilt, asi que no hay que recompilar por ello.
+      - "patches/**"
+      - "scripts/build-vscode-web.sh"
+      - "scripts/ci-build-prebuilt.sh"
+      - "scripts/make-npm-package.sh"
+      - "src/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/build-prebuilt.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prebuilt-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      # Nada de natives de escritorio ni descargas de VSIX de marketplace:
+      # el movil se encarga de los nativos y de las extensiones de depuracion.
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      FOUNDRY_LOCAL_SKIP_INSTALL: "1"
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+      CS_BUILD_MEMORY: "8192"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Dependencias del sistema
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq git python3 build-essential
+
+      - name: Compilar y empaquetar
+        run: bash scripts/ci-build-prebuilt.sh
+
+      - name: Comprobar artefacto
+        run: |
+          test -f vs-server-android-prebuilt.tar.gz
+          tar tzf vs-server-android-prebuilt.tar.gz | grep -q "release/out/node/entry.js"
+          tar tzf vs-server-android-prebuilt.tar.gz | grep -q "release/lib/vscode/out/server-main.js"
+
+      - name: Subir artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: vs-server-android-prebuilt
+          path: vs-server-android-prebuilt.tar.gz
+          retention-days: 30
+
+      - name: Subir artefacto npm
+        uses: actions/upload-artifact@v4
+        with:
+          name: vs-server-android-npm
+          path: vs-server-android-npm.tar.gz
+          retention-days: 30
+
+      - name: Subir log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-build-log
+          path: ci-build.log
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Publicar release
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish != false || github.event_name == 'push' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: prebuilt
+        run: |
+          set -euo pipefail
+          NOTES="$(mktemp)"
+          cat > "$NOTES" << 'EOF'
+          ## VS Code Server para Android (Termux) - build precompilado
+
+          VS Code compilado con los parches moviles (teclado virtual, barra tactil,
+          zoom/viewport, depuracion). En el movil solo se compilan los modulos
+          nativos pequenos.
+
+          ### Instalar (script, desde el clon del repo)
+          ```sh
+          bash scripts/termux-fast-setup.sh
+          ```
+
+          ### Instalar (como el code-server oficial)
+          ```sh
+          npm install -g https://github.com/zurdonman/VS-server-android/releases/latest/download/vs-server-android-npm.tar.gz
+          ```
+          EOF
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" vs-server-android-prebuilt.tar.gz --clobber
+            gh release upload "$TAG" vs-server-android-npm.tar.gz --clobber
+            gh release edit "$TAG" --latest --notes-file "$NOTES"
+          else
+            gh release create "$TAG" vs-server-android-prebuilt.tar.gz vs-server-android-npm.tar.gz \
+              --title "VS Code Server Android (prebuilt)" \
+              --notes-file "$NOTES" \
+              --latest
+          fi

@@ -1,0 +1,33 @@
+Index: code-server/lib/vscode/src/vs/code/browser/workbench/workbench.ts
+===================================================================
+--- code-server.orig/lib/vscode/src/vs/code/browser/workbench/workbench.ts
++++ code-server/lib/vscode/src/vs/code/browser/workbench/workbench.ts
+@@ -611,12 +611,27 @@
+ 		? new ServerKeyedAESCrypto(secretStorageKeyPath) : new TransparentCrypto();
+ 
+ 	// Create workbench
++	const urlCallbackProvider = new LocalStorageURLCallbackProvider(config.callbackRoute);
+ 	create(mainWindow.document.body, {
+ 		...config,
+ 		windowIndicator: config.windowIndicator ?? { label: '$(remote)', tooltip: `${product.nameShort} Web` },
+ 		settingsSyncOptions: config.settingsSyncOptions ? { enabled: config.settingsSyncOptions.enabled, } : undefined,
+ 		workspaceProvider: WorkspaceProvider.create(config),
+-		urlCallbackProvider: new LocalStorageURLCallbackProvider(config.callbackRoute),
++		urlCallbackProvider,
++		// code-server / Android: el embedder (code-server) solo sabe resolver
++		// URLs de localhost para el proxy de puertos; el resto (por ejemplo
++		// "code-oss://extension.id?...") se devuelve tal cual, y ningun
++		// navegador puede abrir ese esquema. Por eso los flujos OAuth que
++		// usan el URI handler (Google Colab, GitHub, MCP, ...) fallan con
++		// "Failed". Resolvemos nuestro propio esquema por la ruta de
++		// callback: el navegador vuelve a /callback, esa pagina guarda la URI
++		// en localStorage y el workbench se la pasa a la extension.
++		resolveExternalUri: async (resource: URI): Promise<URI> => {
++			if (resource.scheme === product.urlProtocol) {
++				return urlCallbackProvider.create(resource);
++			}
++			return config.resolveExternalUri ? await config.resolveExternalUri(resource) : resource;
++		},
+ 		resolveExternalUri: (uri: URI): Promise<URI> => {
+ 			let resolvedUri = uri
+ 			const localhostMatch = extractLocalHostUriMetaDataForPortMapping(resolvedUri)

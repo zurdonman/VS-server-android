@@ -1,0 +1,20 @@
+Index: code-server/lib/vscode/build/lib/tsgo.ts
+===================================================================
+--- code-server.orig/lib/vscode/build/lib/tsgo.ts
++++ code-server/lib/vscode/build/lib/tsgo.ts
+@@ -71,8 +71,14 @@
+ 
+ 			if (code === 0) {
+ 				Promise.resolve(onComplete?.()).then(() => resolve(), reject);
++			} else if (process.env['VSCODE_TSGO_NONFATAL']) {
++				// VS Code Server Android: a typecheck failure must not block the
++				// build (phone toolchains and memory limits can trip the compiler).
++				// Log the full output and keep going.
++				fancyLog(`${ansiColors.yellow(config.taskName)} ${projectPath} failed (non-fatal):\n${lines.join('\n')}`);
++				Promise.resolve(onComplete?.()).then(() => resolve(), reject);
+ 			} else {
+-				reject(new Error(`tsgo exited with code ${code ?? 'unknown'}`));
++				reject(new Error(`tsgo exited with code ${code ?? 'unknown'}\n${lines.join('\n')}`));
+ 			}
+ 		});
+ 

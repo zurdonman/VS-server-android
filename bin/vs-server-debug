@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# VS Code Server Android — comando corto: vs-server-debug
+# Arranca en modo debug: logs en Descargas/log/ (server.log, client.log, vscode-logs-*).
+# Instalado en el PATH por scripts/termux-setup.sh (funciona desde cualquier carpeta).
+set -euo pipefail
+ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+exec bash "$ROOT/scripts/termux-start.sh" debug "$@"

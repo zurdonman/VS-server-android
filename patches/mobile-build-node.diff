@@ -1,0 +1,18 @@
+Index: code-server/lib/vscode/build/gulpfile.reh.ts
+===================================================================
+--- code-server.orig/lib/vscode/build/gulpfile.reh.ts
++++ code-server/lib/vscode/build/gulpfile.reh.ts
+@@ -168,6 +168,13 @@
+ 	task.task(task.define(`node-${platform}-${arch}`, () => {
+ 		const nodePath = path.join('.build', 'node', `v${nodeVersion}`, `${platform}-${arch}`);
+ 
++		// Android/Termux: el binario de node lo aporta Termux (no se puede
++		// ejecutar un node de linux-x64 en Android), asi que aqui no se
++		// descarga nada. La release usa el node del sistema.
++		if (process.env['VSCODE_SKIP_NODE_DOWNLOAD'] === '1') {
++			return Promise.resolve(null);
++		}
++
+ 		if (!fs.existsSync(nodePath)) {
+ 			util.rimraf(nodePath);
+ 

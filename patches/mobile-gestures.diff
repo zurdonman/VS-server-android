@@ -1,0 +1,158 @@
+Index: code-server/lib/vscode/src/vs/workbench/workbench.common.main.ts
+===================================================================
+--- code-server.orig/lib/vscode/src/vs/workbench/workbench.common.main.ts
++++ code-server/lib/vscode/src/vs/workbench/workbench.common.main.ts
+@@ -487,4 +487,7 @@
+ // Mobile Debug Logging
+ import './contrib/mobileKeyboard/browser/mobileDebug.contribution.js';
+ 
+-//#endregion
++// Mobile Gestures (pinch zoom + smooth scrolling)
++import './contrib/mobileKeyboard/browser/mobileGestures.contribution.js';
++
++//#endregion
+Index: code-server/lib/vscode/src/vs/workbench/contrib/mobileKeyboard/browser/mobileGestures.contribution.ts
+===================================================================
+--- code-server.orig/lib/vscode/src/vs/workbench/contrib/mobileKeyboard/browser/mobileGestures.contribution.ts
++++ code-server/lib/vscode/src/vs/workbench/contrib/mobileKeyboard/browser/mobileGestures.contribution.ts
+@@ -0,0 +1,140 @@
++/*---------------------------------------------------------------------------------------------
++ *  Copyright (c) Microsoft Corporation. All rights reserved.
++ *  Licensed under the MIT License. See License.txt in the project root for license information.
++ *--------------------------------------------------------------------------------------------*/
++
++import { addDisposableListener } from '../../../../base/browser/dom.js';
++import { mainWindow } from '../../../../base/browser/window.js';
++import { Disposable } from '../../../../base/common/lifecycle.js';
++import { localize } from '../../../../nls.js';
++import { ConfigurationTarget, IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
++import { INotificationService } from '../../../../platform/notification/common/notification.js';
++import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
++
++const FONT_SIZE_KEY = 'editor.fontSize';
++const FONT_SIZE_MIN = 8;
++const FONT_SIZE_MAX = 40;
++const FONT_SIZE_STEP = 2;
++
++/**
++ * Gestos tactiles para Android/Termux.
++ *
++ *  - Pinch con dos dedos -> cambia el tamano de la fuente del editor. El
++ *    navegador web no trae soporte de pincha (y en Android Chrome el zoom de
++ *    pagina esta desactivado con `user-scalable=no`), asi que lo implementamos
++ *    aqui. El valor se guarda en la configuracion del usuario, de forma que el
++ *    tamano elegido se mantiene al recargar.
++ *  - `editor.smoothScrolling` -> el desplazamiento con el dedo deja de ser a
++ *    saltos y se vuelve continuo (mucho mas comodo sobre una pantalla tactil).
++ */
++export class MobileGesturesContribution extends Disposable implements IWorkbenchContribution {
++
++	static readonly ID = 'workbench.contrib.mobileGestures';
++
++	/** Distancia inicial (en px) entre los dos dedos al empezar el pincha. */
++	private _pinchDistance = 0;
++	/** Tamano de fuente en el momento de empezar el pincha. */
++	private _pinchFontSize = 0;
++	private _isPinching = false;
++
++	constructor(
++		@IConfigurationService private readonly _configurationService: IConfigurationService,
++		@INotificationService private readonly _notificationService: INotificationService
++	) {
++		super();
++
++		this._register(addDisposableListener(mainWindow, 'touchstart', (e: TouchEvent) => this._onTouchStart(e), { passive: true }));
++		this._register(addDisposableListener(mainWindow, 'touchmove', (e: TouchEvent) => this._onTouchMove(e), { passive: false, capture: true }));
++		this._register(addDisposableListener(mainWindow, 'touchend', () => this._endPinch(), { passive: true }));
++		this._register(addDisposableListener(mainWindow, 'touchcancel', () => this._endPinch(), { passive: true }));
++
++		this._enableSmoothScrolling();
++	}
++
++	/**
++	 * Activa el scroll suave salvo que el usuario lo haya configurado
++	 * explicitamente (en su configuracion o en el workspace).
++	 */
++	private _enableSmoothScrolling(): void {
++		const inspected = this._configurationService.inspect<boolean>('editor.smoothScrolling');
++		if (!inspected) {
++			return;
++		}
++		if (inspected.userValue === undefined && inspected.workspaceValue === undefined) {
++			this._configurationService.updateValue('editor.smoothScrolling', true, ConfigurationTarget.USER);
++		}
++	}
++
++	private _onTouchStart(e: TouchEvent): void {
++		if (e.touches.length !== 2) {
++			return;
++		}
++		// Solo gestionamos el pincha cuando el gesto empieza sobre el editor.
++		// En el resto de la interfaz dejamos que el navegador haga su zoom
++		// nativo (zoom de toda la pagina, muy util en un movil).
++		if (!this._isInsideEditor(e)) {
++			return;
++		}
++		this._isPinching = true;
++		this._pinchDistance = this._distance(e.touches);
++		this._pinchFontSize = this._fontSize();
++	}
++
++	private _onTouchMove(e: TouchEvent): void {
++		if (!this._isPinching || e.touches.length !== 2) {
++			return;
++		}
++
++		const distance = this._distance(e.touches);
++		if (!distance || !this._pinchDistance) {
++			return;
++		}
++
++		const ratio = distance / this._pinchDistance;
++		let nextSize: number | undefined;
++		if (ratio > 1.2) {
++			nextSize = this._pinchFontSize + FONT_SIZE_STEP;
++		} else if (ratio < 0.83) {
++			nextSize = this._pinchFontSize - FONT_SIZE_STEP;
++		}
++
++		if (nextSize === undefined) {
++			return;
++		}
++
++		// Evita el zoom nativo del navegador (y el scroll con dos dedos).
++		e.preventDefault();
++
++		nextSize = Math.min(Math.max(nextSize, FONT_SIZE_MIN), FONT_SIZE_MAX);
++		this._configurationService.updateValue(FONT_SIZE_KEY, nextSize, ConfigurationTarget.USER);
++		this._pinchFontSize = nextSize;
++		this._pinchDistance = distance;
++	}
++
++	private _endPinch(): void {
++		if (!this._isPinching) {
++			return;
++		}
++		this._isPinching = false;
++		this._pinchDistance = 0;
++		this._notificationService.info(localize('mobileEditorFontSize', "Tamano de letra del editor: {0}px", this._fontSize()));
++	}
++
++	private _fontSize(): number {
++		const size = this._configurationService.getValue<number>(FONT_SIZE_KEY);
++		return typeof size === 'number' ? size : 14;
++	}
++
++	private _isInsideEditor(e: TouchEvent): boolean {
++		const target = e.target;
++		return target instanceof Element && !!target.closest('.monaco-editor');
++	}
++
++	private _distance(touches: TouchList): number {
++		const dx = touches[0].clientX - touches[1].clientX;
++		const dy = touches[0].clientY - touches[1].clientY;
++		return Math.sqrt(dx * dx + dy * dy);
++	}
++}
++
++registerWorkbenchContribution2(MobileGesturesContribution.ID, MobileGesturesContribution, WorkbenchPhase.AfterRestored);

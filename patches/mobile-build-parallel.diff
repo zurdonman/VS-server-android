@@ -1,0 +1,78 @@
+Index: code-server/lib/vscode/build/lib/extensions.ts
+===================================================================
+--- code-server.orig/lib/vscode/build/lib/extensions.ts
++++ code-server/lib/vscode/build/lib/extensions.ts
+@@ -19,6 +19,7 @@
+ import * as jsoncParser from 'jsonc-parser';
+ import { getProductionDependencies } from './dependencies.ts';
+ import { type IExtensionDefinition, getExtensionStream } from './builtInExtensions.ts';
++import { PassThrough } from 'stream';
+ import { fetchUrls, fetchGithub } from './fetch.ts';
+ import { createTsgoStream, spawnTsgo } from './tsgo.ts';
+ import watcher from './watch/index.ts';
+@@ -410,6 +411,46 @@
+  * @param forWeb build the extensions that have web targets
+  * @param native build the extensions that are marked as having native dependencies
+  */
++/**
++ * Mobile/CI-friendly merge: runs the given stream factories with at most
++ * `limit` in flight (es.merge starts them all at once, which can exhaust RAM
++ * when each factory spawns an esbuild process).
++ */
++function mergeWithLimit(streamFactories: (() => Stream)[], limit: number): Stream {
++	const out = new PassThrough({ objectMode: true }) as unknown as Stream & { write(c: unknown): boolean; end(): void; destroy(e: Error): void };
++	let index = 0;
++	let active = 0;
++	let done = false;
++	const pump = () => {
++		while (!done && active < limit && index < streamFactories.length) {
++			const src = streamFactories[index++]();
++			active++;
++			src.on('data', (chunk: unknown) => {
++				if (!(out as unknown as { write(c: unknown): boolean }).write(chunk)) {
++					src.pause();
++					(out as unknown as { once(e: string, cb: () => void): void }).once('drain', () => src.resume());
++				}
++			});
++			src.on('end', () => {
++				active--;
++				if (active === 0 && index >= streamFactories.length) {
++					done = true;
++					out.end();
++				} else {
++					pump();
++				}
++			});
++			src.on('error', (err: Error) => { done = true; out.destroy(err); });
++		}
++	};
++	if (streamFactories.length === 0) {
++		out.end();
++	} else {
++		pump();
++	}
++	return out as unknown as Stream;
++}
++
+ function doPackageLocalExtensionsStream(forWeb: boolean, native: boolean): Stream {
+ 	const nativeExtensionsSet = new Set(nativeExtensions);
+ 	const localExtensionsDescriptions = (
+@@ -426,12 +467,14 @@
+ 			.filter(({ manifestPath }) => (forWeb ? isWebExtension(require(manifestPath)) : true))
+ 	);
+ 
++	const concurrency = Math.max(1, parseInt(process.env['VSCODE_BUILD_EXTENSIONS_CONCURRENCY'] || '3', 10) || 3);
+ 	const localExtensionsStream = minifyExtensionResources(
+-		es.merge(
+-			...localExtensionsDescriptions.map(extension => {
+-				return fromLocal(extension.path, forWeb)
++		mergeWithLimit(
++			localExtensionsDescriptions.map(extension => {
++				return () => fromLocal(extension.path, forWeb)
+ 					.pipe(rename(p => p.dirname = `extensions/${extension.name}/${p.dirname}`));
+-			})
++			}),
++			concurrency
+ 		)
+ 	);
+ 

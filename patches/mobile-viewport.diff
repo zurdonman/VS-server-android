@@ -1,0 +1,31 @@
+Enable viewport-fit=cover so phones with notches respect safe areas in the
+mobile keyboard toolbar.
+ 
+Index: code-server/lib/vscode/src/vs/code/browser/workbench/workbench.html
+===================================================================
+--- code-server.orig/lib/vscode/src/vs/code/browser/workbench/workbench.html
++++ code-server/lib/vscode/src/vs/code/browser/workbench/workbench.html
+@@ -15,7 +15,7 @@
+ 		<link rel="apple-touch-icon" sizes="512x512" href="{{BASE}}/_static/src/browser/media/pwa-icon-512.png" />
+ 
+ 		<!-- Disable pinch zooming -->
+-		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
++		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+ 
+ 		<!-- Workbench Configuration -->
+ 		<meta id="vscode-workbench-web-configuration" data-settings="{{WORKBENCH_WEB_CONFIGURATION}}">
+ 
+Index: code-server/lib/vscode/src/vs/code/browser/workbench/workbench-dev.html
+===================================================================
+--- code-server.orig/lib/vscode/src/vs/code/browser/workbench/workbench-dev.html
++++ code-server/lib/vscode/src/vs/code/browser/workbench/workbench-dev.html
+@@ -15,7 +15,7 @@
+ 		<link rel="apple-touch-icon" sizes="512x512" href="{{BASE}}/_static/src/browser/media/pwa-icon-512.png" />
+ 
+ 		<!-- Disable pinch zooming -->
+-		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
++		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+ 
+ 		<!-- Workbench Configuration -->
+ 		<meta id="vscode-workbench-web-configuration" data-settings="{{WORKBENCH_WEB_CONFIGURATION}}">
+ 

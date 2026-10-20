@@ -1,0 +1,39 @@
+Index: code-server/lib/vscode/src/vs/workbench/browser/window.ts
+===================================================================
+--- code-server.orig/lib/vscode/src/vs/workbench/browser/window.ts
++++ code-server/lib/vscode/src/vs/workbench/browser/window.ts
+@@ -389,10 +389,30 @@
+ 							});
+ 						}
+ 					} else {
+-						if (isAllowedOpener) {
+-							windowOpenPopup(href);
+-						} else {
+-							windowOpenNoOpener(href);
++						// Android/Termux (code-server): tambien en un navegador movil
++						// (Chrome) el popup puede quedar bloqueado. Los flujos de
++						// login OAuth abren la URL despues de varias esperas, con
++						// lo que el "gesto" del usuario ya ha caducado y
++						// window.open() no abre nada (el usuario ve que "no pasa
++						// nada"). Detectamos el bloqueo y ofrecemos botones que
++						// funcionan con un toque real.
++						const opened = windowOpenWithSuccess(href, !isAllowedOpener);
++						if (!opened) {
++							await this.dialogService.prompt({
++								type: Severity.Warning,
++								message: localize('unableToOpenExternalMobile', "El navegador ha bloqueado la apertura de una pestana nueva. Pulsa 'Reintentar' para abrirla."),
++								buttons: [
++									{
++										label: localize({ key: 'retryOpenExternalMobile', comment: ['&& denotes a mnemonic'] }, "&&Reintentar"),
++										run: () => isAllowedOpener ? windowOpenPopup(href) : windowOpenNoOpener(href)
++									},
++									{
++										label: localize('openInThisTabMobile', "Abrir en esta pestana"),
++										run: () => { mainWindow.location.href = href; }
++									}
++								],
++								cancelButton: true
++							});
+ 						}
+ 					}
+ 				}
